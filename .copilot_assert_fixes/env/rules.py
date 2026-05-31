@@ -2295,20 +2295,16 @@ def _build_colosseum(state: GameState):
 def _train_gladiator_1(state: GameState):
     assert state.colosseum_built, "The colosseum has not been built yet but is required for this action"
     assert state.is_gladiator_1_alive(), "Gladiator 1 is not alive and cannot be trained"
-    assert state.performers_track_boxes >= PERFORMERS_COLOSSEUM_TRAINING_THRESHOLDS[state.gladiator_1_strength], \
-		f"Performers track is not high enough to train gladiator 1"
-    assert state.gladiator_boxes_unlocked > state.gladiator_1_strength, \
-		f"Gladiator 1 strength is too high to train (current strength: {state.gladiator_1_strength}, gladiator boxes unlocked: {state.gladiator_boxes_unlocked})"
+    assert state.performers_track_boxes >= PERFORMERS_COLOSSEUM_TRAINING_THRESHOLDS[state.gladiator_1_strength], f"Performers track is not high enough to train gladiator 1"
+    assert state.gladiator_boxes_unlocked > state.gladiator_1_strength, f"Gladiator 1 strength is too high to train (current strength: {state.gladiator_1_strength}, gladiator boxes unlocked: {state.gladiator_boxes_unlocked})"
     assert state.gladiator_1_strength < NUM_GLADIATOR_BOXES, "Gladiator 1 is already at maximum strength"
     state.gladiator_1_strength += 1
 
 def _train_gladiator_2(state: GameState):
     assert state.colosseum_built, "The colosseum has not been built yet but is required for this action"
     assert state.is_gladiator_2_alive(), "Gladiator 2 is not alive and cannot be trained"
-    assert state.performers_track_boxes >= PERFORMERS_COLOSSEUM_TRAINING_THRESHOLDS[NUM_GLADIATOR_BOXES + state.gladiator_2_strength], \
-		f"Performers track is not high enough to train gladiator 2"
-    assert state.gladiator_boxes_unlocked > NUM_GLADIATOR_BOXES + state.gladiator_2_strength, \
-		f"Gladiator 2 strength is too high to train (current strength: {state.gladiator_2_strength}, gladiator boxes unlocked: {state.gladiator_boxes_unlocked})"
+    assert state.performers_track_boxes >= PERFORMERS_COLOSSEUM_TRAINING_THRESHOLDS[NUM_GLADIATOR_BOXES + state.gladiator_2_strength], f"Performers track is not high enough to train gladiator 2"
+    assert state.gladiator_boxes_unlocked > NUM_GLADIATOR_BOXES + state.gladiator_2_strength, f"Gladiator 2 strength is too high to train (current strength: {state.gladiator_2_strength}, gladiator boxes unlocked: {state.gladiator_boxes_unlocked})"
     assert state.gladiator_2_strength < NUM_GLADIATOR_BOXES, "Gladiator 2 is already at maximum strength"
     state.gladiator_2_strength += 1
 
@@ -2415,8 +2411,7 @@ def _build_small_temple(state: GameState):
 
 def _fill_small_temple(state: GameState):
     assert state.small_temple_built, "Small temple must be built before filling it"
-    assert state.priests_track_boxes >= PRIESTS_SMALL_TEMPLE_FILL_THRESHOLDS[state.small_temple_boxes], \
-		"Priests track is not high enough to fill the small temple"
+    assert state.priests_track_boxes >= PRIESTS_SMALL_TEMPLE_FILL_THRESHOLDS[state.small_temple_boxes], "Priests track is not high enough to fill the small temple"
     assert state.is_small_temple_filled() == False, "All small temple boxes are already filled"
     state.small_temple_boxes += 1
     _add_piety_attribute_point(state)
@@ -2433,8 +2428,7 @@ def _build_medium_temple(state: GameState):
 
 def _fill_medium_temple(state: GameState):
     assert state.medium_temple_built, "Medium temple must be built before filling it"
-    assert state.priests_track_boxes >= PRIESTS_MEDIUM_TEMPLE_FILL_THRESHOLDS[state.medium_temple_boxes], \
-		"Priests track is not high enough to fill the medium temple"
+    assert state.priests_track_boxes >= PRIESTS_MEDIUM_TEMPLE_FILL_THRESHOLDS[state.medium_temple_boxes], "Priests track is not high enough to fill the medium temple"
     assert state.is_small_temple_filled(), "All small temple boxes must be filled"
     assert state.is_medium_temple_filled() == False, "All medium temple boxes are already filled"
     state.medium_temple_boxes += 1
@@ -2453,8 +2447,7 @@ def _build_large_temple(state: GameState):
 
 def _fill_large_temple(state: GameState):
     assert state.large_temple_built, "Large temple must be built before filling it"
-    assert state.priests_track_boxes >= PRIESTS_LARGE_TEMPLE_FILL_THRESHOLDS[state.large_temple_boxes], \
-		"Priests track is not high enough to fill the large temple"
+    assert state.priests_track_boxes >= PRIESTS_LARGE_TEMPLE_FILL_THRESHOLDS[state.large_temple_boxes], "Priests track is not high enough to fill the large temple"
     assert state.is_large_temple_filled() == False, "All large temple boxes are already filled"
     state.large_temple_boxes += 1
     _add_piety_attribute_point(state)
@@ -2490,8 +2483,7 @@ def _build_baths(state: GameState):
 def _pay_bribe(state: GameState):
     assert state.baths_built, "Baths must be built before bribing it"
     assert state.baths_boxes < NUM_BATHS_BOXES, "All baths bribe boxes are already filled"
-    assert state.apparitores_track_boxes >= APPARITORES_BATHS_BRIBE_THRESHOLDS[state.baths_boxes], \
-		"Apparitores track is not high enough to bribe in the baths"
+    assert state.apparitores_track_boxes >= APPARITORES_BATHS_BRIBE_THRESHOLDS[state.baths_boxes], "Apparitores track is not high enough to bribe in the baths"
     assert state.get_final_disdain() > 0, "Not enough disdain to pay a bribe in the baths"
     state.baths_boxes += 1
     state.baths_rounds.append(state.current_round)
@@ -2509,8 +2501,7 @@ def _courthouse_get_servant(state: GameState):
     assert not state.courthouse_get_servant_available, "Courthouse get servant action is not available"
     assert state.courthouse_get_servant_boxes < MAX_NUM_COURTHOUSE_ACTIONS, "All courthouse get servant boxes are already used"
     assert state.courthouse_get_servant_boxes < state.courthouse_get_servant_unlocked, "Not enough courthouse get servant boxes are unlocked yet"
-    assert state.apparitores_track_boxes >= APPARITORES_COURTHOUSE_GET_SERVANT_THRESHOLDS[state.courthouse_get_servant_boxes], \
-		"Apparitores track is not high enough to get a servant from the courthouse"
+    assert state.apparitores_track_boxes >= APPARITORES_COURTHOUSE_GET_SERVANT_THRESHOLDS[state.courthouse_get_servant_boxes], "Apparitores track is not high enough to get a servant from the courthouse"
     state.courthouse_get_servant_available = False
     state.num_servants += 1
     state.courthouse_get_servant_boxes += 1
@@ -2519,11 +2510,9 @@ def _courthouse_get_servant(state: GameState):
 def _courthouse_builder_to_two_servants(state: GameState):
     assert state.courthouse_built, "Courthouse must be built before converting a builder to two servants"
     assert not state.courthouse_builder_to_two_servants_available, "Courthouse builder to two servants action is not available"
-    assert state.courthouse_builder_to_two_servants_boxes < MAX_NUM_COURTHOUSE_ACTIONS, "All courthouse builder to two servants boxes are already used"
-    assert state.courthouse_builder_to_two_servants_boxes < state.courthouse_builder_to_two_servants_unlocked, \
-		"Not enough courthouse builder to two servants boxes are unlocked yet"
-    assert state.apparitores_track_boxes >= APPARITORES_COURTHOUSE_BUILDER_TO_TWO_SERVANTS_THRESHOLDS[state.courthouse_builder_to_two_servants_boxes], \
-		"Apparitores track is not high enough to convert a builder to two servants in the courthouse"
+    assert state.courthouse_builder_to_two_servants_boxes < MAX_NUM_COURTHOUSE_ACTIONS, "All courthouse builder to two servants boxes are already used" 
+    assert state.courthouse_builder_to_two_servants_boxes < state.courthouse_builder_to_two_servants_unlocked, "Not enough courthouse builder to two servants boxes are unlocked yet"
+    assert state.apparitores_track_boxes >= APPARITORES_COURTHOUSE_BUILDER_TO_TWO_SERVANTS_THRESHOLDS[state.courthouse_builder_to_two_servants_boxes], "Apparitores track is not high enough to convert a builder to two servants in the courthouse"
     state.courthouse_builder_to_two_servants_available = False
     state.num_servants += 2
     state.courthouse_builder_to_two_servants_boxes += 1
@@ -2533,10 +2522,8 @@ def _courthouse_servant_to_builder(state: GameState):
     assert state.courthouse_built, "Courthouse must be built before converting a servant to a builder"
     assert not state.courthouse_servant_to_builder_available, "Courthouse servant to builder action is not available"
     assert state.courthouse_servant_to_builder_boxes < MAX_NUM_COURTHOUSE_ACTIONS, "All courthouse servant to builder boxes are already used"
-    assert state.courthouse_servant_to_builder_boxes < state.courthouse_servant_to_builder_unlocked, \
-		"Not enough courthouse servant to builder boxes are unlocked yet"
-    assert state.apparitores_track_boxes >= APPARITORES_COURTHOUSE_SERVANT_TO_BUILDER_THRESHOLDS[state.courthouse_servant_to_builder_boxes], \
-		"Apparitores track is not high enough to convert a servant to a builder in the courthouse"
+    assert state.courthouse_servant_to_builder_boxes < state.courthouse_servant_to_builder_unlocked, "Not enough courthouse servant to builder boxes are unlocked yet"
+    assert state.apparitores_track_boxes >= APPARITORES_COURTHOUSE_SERVANT_TO_BUILDER_THRESHOLDS[state.courthouse_servant_to_builder_boxes], "Apparitores track is not high enough to convert a servant to a builder in the courthouse"
     assert state.num_servants >= 1, "Not enough servants to convert to a builder in the courthouse"
     state.courthouse_servant_to_builder_available = False
     state.num_builders += 1
