@@ -2,7 +2,7 @@
   {
     "name": "Architect", 
     "id": 0,
-    "scout_pattern": 2,
+    "scout_pattern_id": 2,
     "num_soldiers": 0,
     "num_builders": 0,
     "num_servants": 0,
@@ -13,7 +13,7 @@
   {
     "name": "Aristocrat",
     "id": 1,
-    "scout_pattern": 4,
+    "scout_pattern_id": 4,
     "num_soldiers": 0,
     "num_builders": 1,
     "num_servants": 0,
@@ -24,7 +24,7 @@
   {
     "name": "Defender",
     "id": 2,
-    "scout_pattern": 5,
+    "scout_pattern_id": 5,
     "num_soldiers": 0,
     "num_builders": 1,
     "num_servants": 0,
@@ -35,7 +35,7 @@
   {
     "name": "Engineer",
     "id": 3,
-    "scout_pattern": 5,
+    "scout_pattern_id": 5,
     "num_soldiers": 0,
     "num_builders": 1,
     "num_servants": 0,
@@ -46,7 +46,7 @@
   {
     "name": "Fighter",
     "id": 4,
-    "scout_pattern": 1,
+    "scout_pattern_id": 1,
     "num_soldiers": 1,
     "num_builders": 0,
     "num_servants": 0,
@@ -57,7 +57,7 @@
   {
     "name": "Forager",
     "id": 5,
-    "scout_pattern": 4,
+    "scout_pattern_id": 4,
     "num_soldiers": 0,
     "num_builders": 0,
     "num_servants": 1,
@@ -68,7 +68,7 @@
   {
     "name": "Merchant",
     "id": 6,
-    "scout_pattern": 1,
+    "scout_pattern_id": 1,
     "num_soldiers": 0,
     "num_builders": 0,
     "num_servants": 0,
@@ -79,7 +79,7 @@
   {
     "name": "Planner",
     "id": 7,
-    "scout_pattern": 3,
+    "scout_pattern_id": 3,
     "num_soldiers": 0,
     "num_builders": 0,
     "num_servants": 1,
@@ -90,7 +90,7 @@
   {
     "name": "Pontiff",
     "id": 8,
-    "scout_pattern": 4,
+    "scout_pattern_id": 4,
     "num_soldiers": 0,
     "num_builders": 0,
     "num_servants": 2,
@@ -101,7 +101,7 @@
   {
     "name": "Ranger",
     "id": 9,
-    "scout_pattern": 2,
+    "scout_pattern_id": 2,
     "num_soldiers": 1,
     "num_builders": 0,
     "num_servants": 0,
@@ -112,7 +112,7 @@
   {
     "name": "Trainer",
     "id": 10,
-    "scout_pattern": 3,
+    "scout_pattern_id": 3,
     "num_soldiers": 0,
     "num_builders": 0,
     "num_servants": 1,
@@ -123,7 +123,7 @@
   {
     "name": "Vanguard",
     "id": 11,
-    "scout_pattern": 3,
+    "scout_pattern_id": 3,
     "num_soldiers": 0,
     "num_builders": 1,
     "num_servants": 0,

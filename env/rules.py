@@ -169,10 +169,10 @@ DICIPLINE_ADD_VALOUR_THRESHOLD = 17
 COSTS = {
     # Left sheet action costs
     actions.ACTION_ADVANCE_MINING_AND_FORESTING: {"servants": 1},
-    actions.ACTION_ADVANCE_WALL_GUARD: {"solders": 1},
+    actions.ACTION_ADVANCE_WALL_GUARD: {"soldiers": 1},
     actions.ACTION_ADVANCE_CIPPI: {"resources": 1},
     actions.ACTION_ADVANCE_WALL: {"resources": 1},
-    actions.ACTION_ADVANCE_FORT_PAY_SOLDIER: {"solders": 1},
+    actions.ACTION_ADVANCE_FORT_PAY_SOLDIER: {"soldiers": 1},
     actions.ACTION_ADVANCE_FORT_PAY_BUILDER: {"builders": 1},
     actions.ACTION_BUILD_SMALL_GRANARY: {"builders": 1, "servants": 1, "resources": 1},
     actions.ACTION_BUILD_LARGE_GRANARY: {"builders": 1, "servants": 1, "resources": 2},
@@ -309,7 +309,7 @@ def _start_pict_attack(state: GameState):
     if (state.left_cohort_incoming_disdain > 0 and (state.num_left_cohort_favours > 0 or state.num_general_favours > 0)) or \
             (state.center_cohort_incoming_disdain > 0 and (state.num_center_cohort_favours > 0 or state.num_general_favours > 0)) or \
             (state.right_cohort_incoming_disdain > 0 and (state.num_right_cohort_favours > 0 or state.num_general_favours > 0)):
-        state.status == GameStatus.STATUS_USE_FAVOURS
+        state.status = GameStatus.STATUS_USE_FAVOURS
     else:
         _end_round(state)  
 
@@ -447,12 +447,6 @@ def _apply_right_sheet_action(state: GameState, action):
 
 def _apply_follow_up_action(state: GameState, action):
     match action:
-        case actions.ACTION_ENFORCE_LEFT_COHORT:
-            _enforce_left_cohort(state)
-        case actions.ACTION_ENFORCE_CENTER_COHORT:
-            _enforce_center_cohort(state)
-        case actions.ACTION_ENFORCE_RIGHT_COHORT:
-            _enforce_right_cohort(state)
         case actions.ACTION_RECEIVE_ATTRIBUTE_RENOWN:
             _add_renown_attribute_point(state)
             if state.status == GameStatus.STATUS_CHOOSE_TWO_ATTRIBUTES:
@@ -477,7 +471,7 @@ def _apply_follow_up_action(state: GameState, action):
                 state.status = GameStatus.STATUS_CHOOSE_PLAYER_CARD
             else:
                 state.status = GameStatus.STATUS_MAIN_LOOP
-        case actions.ACTION_RECEIVE_ATTRIBUTE_DICIPLINE:
+        case actions.ACTION_RECEIVE_ATTRIBUTE_DISCIPLINE:
             _add_dicipline_attribute_point(state)
             if state.status == GameStatus.STATUS_CHOOSE_TWO_ATTRIBUTES:
                 state.status = GameStatus.STATUS_CHOOSE_ATTRIBUTE
@@ -1039,11 +1033,11 @@ def validate_action(state: GameState, action) -> bool:
         case action if action in actions.ACTIONS_CARD_ASSIGNMENT:
             return _validate_card_assignment_action(state, action)
         case action if action in actions.ACTIONS_LEFT_SHEET:
-            _validate_left_sheet_action(state, action)
+            return _validate_left_sheet_action(state, action)
         case action if action in actions.ACTIONS_RIGHT_SHEET:
-            _validate_right_sheet_action(state, action)
+            return _validate_right_sheet_action(state, action)
         case action if action in actions.ACTIONS_FOLLOW_UP:
-            _validate_follow_up_action(state, action)
+            return _validate_follow_up_action(state, action)
         case actions.ACTION_END_ROUND:
             return state.status in [GameStatus.STATUS_MAIN_LOOP, GameStatus.STATUS_USE_FAVOURS]
         case _:
@@ -1154,15 +1148,6 @@ def _validate_right_sheet_action(state: GameState, action):
 
 def _validate_follow_up_action(state: GameState, action):
     match action:
-        case actions.ACTION_ENFORCE_LEFT_COHORT:
-            return (state.status == GameStatus.STATUS_ADVANCE_COHORT) and \
-                (state.left_cohort_boxes < NUM_COHORTS_BOXES)
-        case actions.ACTION_ENFORCE_CENTER_COHORT:
-            return (state.status == GameStatus.STATUS_ADVANCE_COHORT) and \
-                (state.center_cohort_boxes < NUM_COHORTS_BOXES)
-        case actions.ACTION_ENFORCE_RIGHT_COHORT:
-            return (state.status == GameStatus.STATUS_ADVANCE_COHORT) and \
-                (state.right_cohort_boxes < NUM_COHORTS_BOXES)
         case actions.ACTION_RECEIVE_ATTRIBUTE_RENOWN:
             return (state.status in [GameStatus.STATUS_CHOOSE_RENOWN_OR_VALOUR, \
                     GameStatus.STATUS_CHOOSE_TWO_ATTRIBUTES, \
@@ -1378,19 +1363,19 @@ def _validate_patrician_action(state: GameState, action) -> bool:
                 (state.scouts_boxes >= state.scouts_boxes_unlocked):
                 return False
             pattern_id = state.get_current_prospect_card_scout_pattern_id()
-            return _has_any_valid_scout_pattern_placement(pattern_id)
+            return _has_any_valid_scout_pattern_placement(state, pattern_id)
         case actions.ACTION_SEND_SCOUT_NEIGHBOR_CARD_1:
             if (state.status != GameStatus.STATUS_MAIN_LOOP) or \
                 (state.scouts_boxes >= state.scouts_boxes_unlocked):
                 return False
             pattern_id = state.get_neighbor_prospect_card_1_scout_pattern_id()
-            return _has_any_valid_scout_pattern_placement(pattern_id)
+            return _has_any_valid_scout_pattern_placement(state, pattern_id)
         case actions.ACTION_SEND_SCOUT_NEIGHBOR_CARD_2:
             if (state.status != GameStatus.STATUS_MAIN_LOOP) or \
                 (state.scouts_boxes >= state.scouts_boxes_unlocked):
                 return False
             pattern_id = state.get_neighbor_prospect_card_2_scout_pattern_id()
-            return _has_any_valid_scout_pattern_placement(pattern_id)
+            return _has_any_valid_scout_pattern_placement(state, pattern_id)
         case action if action in actions.ACTIONS_SCOUTS:
             return _validate_scout_grid_pattern_action(state, action)
         case _:
@@ -1778,35 +1763,35 @@ def _validate_scout_grid_pattern_5_action(state: GameState, action) -> bool:
         case _:
             raise ValueError(f"Unknown action: {action}")
 
-def _has_any_valid_scout_pattern_placement(pattern_id) -> bool:
+def _has_any_valid_scout_pattern_placement(state: GameState, pattern_id) -> bool:
     match pattern_id:
         case 1:
-            return _has_any_valid_scout_pattern_placement_1()
+            return _has_any_valid_scout_pattern_placement_1(state)
         case 2:
-            return _has_any_valid_scout_pattern_placement_2()
+            return _has_any_valid_scout_pattern_placement_2(state)
         case 3:
-            return _has_any_valid_scout_pattern_placement_3()
+            return _has_any_valid_scout_pattern_placement_3(state)
         case 4:
-            return _has_any_valid_scout_pattern_placement_4()
+            return _has_any_valid_scout_pattern_placement_4(state)
         case 5:
-            return _has_any_valid_scout_pattern_placement_5()
+            return _has_any_valid_scout_pattern_placement_5(state)
         case _:
             raise ValueError(f"Unknown scout pattern: {pattern_id}")
         
-def _has_any_valid_scout_pattern_placement_1() -> bool:
-    return any([_validate_scout_grid_pattern_1_action(a) for a in actions.ACTIONS_SCOUTS_PATTERN_1])
+def _has_any_valid_scout_pattern_placement_1(state: GameState) -> bool:
+    return any([_validate_scout_grid_pattern_1_action(state, a) for a in actions.ACTIONS_SCOUTS_PATTERN_1])
 
-def _has_any_valid_scout_pattern_placement_2() -> bool:
-    return any([_validate_scout_grid_pattern_2_action(a) for a in actions.ACTIONS_SCOUTS_PATTERN_2])
+def _has_any_valid_scout_pattern_placement_2(state: GameState) -> bool:
+    return any([_validate_scout_grid_pattern_2_action(state, a) for a in actions.ACTIONS_SCOUTS_PATTERN_2])
+ 
+def _has_any_valid_scout_pattern_placement_3(state: GameState) -> bool:
+    return any([_validate_scout_grid_pattern_3_action(state, a) for a in actions.ACTIONS_SCOUTS_PATTERN_3])
 
-def _has_any_valid_scout_pattern_placement_3() -> bool:
-    return any([_validate_scout_grid_pattern_3_action(a) for a in actions.ACTIONS_SCOUTS_PATTERN_3])
+def _has_any_valid_scout_pattern_placement_4(state: GameState) -> bool:
+    return any([_validate_scout_grid_pattern_4_action(state, a) for a in actions.ACTIONS_SCOUTS_PATTERN_4])
 
-def _has_any_valid_scout_pattern_placement_4() -> bool:
-    return any([_validate_scout_grid_pattern_4_action(a) for a in actions.ACTIONS_SCOUTS_PATTERN_4])
-
-def _has_any_valid_scout_pattern_placement_5() -> bool:
-    return any([_validate_scout_grid_pattern_5_action(a) for a in actions.ACTIONS_SCOUTS_PATTERN_5])
+def _has_any_valid_scout_pattern_placement_5(state: GameState) -> bool:
+    return any([_validate_scout_grid_pattern_5_action(state, a) for a in actions.ACTIONS_SCOUTS_PATTERN_5])
 
 
 # Supply management
@@ -2008,8 +1993,8 @@ def _build_large_granary(state: GameState):
 
 def _use_training_grounds(state: GameState):
     assert state.training_grounds_available, "Training grounds action is not available"
-    assert state.training_grounds_boxes < NUM_TRAINING_GROUNDS_BOXES, "All training grounds boxes are already filled"
-    state.training_grounds_boxes += 1
+    assert state.training_grounds_boxes_available > 0, "All training grounds boxes are already filled"
+    state.training_grounds_boxes_available -= 1
     state.training_grounds_available = False
     state.training_grounds_rounds.append(state.current_round)
     _advance_wall_guard(state)
@@ -2067,8 +2052,8 @@ def _build_large_road(state: GameState):
 
 def _use_forum(state: GameState):
     assert state.forum_available, "Forum action is not available"
-    assert state.forum_boxes < NUM_FORUM_BOXES, "All forum boxes are already filled"
-    state.forum_boxes += 1
+    assert state.forum_boxes_available > 0, "All forum boxes are already filled"
+    state.forum_boxes_available -= 1
     state.forum_available = False
     state.forum_rounds.append(state.current_round)
 
@@ -2209,7 +2194,7 @@ def _build_theater(state: GameState):
     _add_renown_attribute_point(state)
 
 def _arrange_performance_1(state: GameState):
-    assert state.theater_boxes_unlocked[0] == True, "Theater box has not been unlocked yet"
+    assert state.theater_boxes_unlocked >= 1, "Theater box has not been unlocked yet"
     assert state.performers_track_boxes >= PERFORMERS_THEATER_ARRANGE_PERFORMANCE_THRESHOLDS[0], f"Performers track is not high enough to arrange performance 1"
     assert state.theater_built, "Theater is not built yet"
     assert state.theater_available, "Theater is not available this round"
@@ -2221,7 +2206,7 @@ def _arrange_performance_1(state: GameState):
     _advance_traders_track(state)
 
 def _arrange_performance_2(state: GameState):
-    assert state.theater_boxes_unlocked[1] == True, "Theater box has not been unlocked yet"
+    assert state.theater_boxes_unlocked >= 2, "Theater box has not been unlocked yet"
     assert state.performers_track_boxes >= PERFORMERS_THEATER_ARRANGE_PERFORMANCE_THRESHOLDS[1], f"Performers track is not high enough to arrange performance 2"
     assert state.theater_built, "Theater is not built yet"
     assert state.theater_available, "Theater is not available this round"
@@ -2234,7 +2219,7 @@ def _arrange_performance_2(state: GameState):
     _add_dicipline_attribute_point(state)
 
 def _arrange_performance_3(state: GameState):
-    assert state.theater_boxes_unlocked[2] == True, "Theater box has not been unlocked yet"
+    assert state.theater_boxes_unlocked >= 3, "Theater box has not been unlocked yet"
     assert state.performers_track_boxes >= PERFORMERS_THEATER_ARRANGE_PERFORMANCE_THRESHOLDS[2], f"Performers track is not high enough to arrange performance 3"
     assert state.theater_built, "Theater is not built yet"
     assert state.theater_available, "Theater is not available this round"
@@ -2247,7 +2232,7 @@ def _arrange_performance_3(state: GameState):
     _add_piety_attribute_point(state)
 
 def _arrange_performance_4(state: GameState):
-    assert state.theater_boxes_unlocked[3] == True, "Theater box has not been unlocked yet"
+    assert state.theater_boxes_unlocked >= 4, "Theater box has not been unlocked yet"
     assert state.performers_track_boxes >= PERFORMERS_THEATER_ARRANGE_PERFORMANCE_THRESHOLDS[3], f"Performers track is not high enough to arrange performance 4"
     assert state.theater_built, "Theater is not built yet"
     assert state.theater_available, "Theater is not available this round"
@@ -2260,7 +2245,7 @@ def _arrange_performance_4(state: GameState):
     _advance_apparitores_track(state)
 
 def _arrange_performance_5(state: GameState):
-    assert state.theater_boxes_unlocked[4] == True, "Theater box has not been unlocked yet"
+    assert state.theater_boxes_unlocked >= 5, "Theater box has not been unlocked yet"
     assert state.performers_track_boxes >= PERFORMERS_THEATER_ARRANGE_PERFORMANCE_THRESHOLDS[4], f"Performers track is not high enough to arrange performance 5"
     assert state.theater_built, "Theater is not built yet"
     assert state.theater_available, "Theater is not available this round"
@@ -2273,7 +2258,7 @@ def _arrange_performance_5(state: GameState):
     _advance_priests_track(state)
 
 def _arrange_performance_6(state: GameState):
-    assert state.theater_boxes_unlocked[5] == True, "Theater box has not been unlocked yet"
+    assert state.theater_boxes_unlocked >= 6, "Theater box has not been unlocked yet"
     assert state.performers_track_boxes >= PERFORMERS_THEATER_ARRANGE_PERFORMANCE_THRESHOLDS[5], f"Performers track is not high enough to arrange performance 6"
     assert state.theater_built, "Theater is not built yet"
     assert state.theater_available, "Theater is not available this round"
@@ -2561,7 +2546,7 @@ def _advance_patricians_track(state: GameState):
 
 def _send_left_diplomat(state: GameState):
     assert state.has_diplomat_box_available(), "No diplomat boxes available to send a diplomat"
-    assert state.patricians_track_boxes >= PATRICIANS_DIPLOMAT_THRESHOLDS[state.get_num_diplomat_boxes_available()], "Patricians track is not high enough to send a diplomat to the left cohort"
+    assert state.patricians_track_boxes >= PATRICIANS_DIPLOMAT_THRESHOLDS[state.get_num_diplomat_boxes_used()], "Patricians track is not high enough to send a diplomat to the left cohort"
     assert state.diplomat_left_available == True, "Left diplomat action is not available"
     state.diplomat_left_available = False
     _add_valour_attribute_point(state)
@@ -2569,7 +2554,7 @@ def _send_left_diplomat(state: GameState):
 
 def _send_center_diplomat(state: GameState):
     assert state.has_diplomat_box_available(), "No diplomat boxes available to send a diplomat"
-    assert state.patricians_track_boxes >= PATRICIANS_DIPLOMAT_THRESHOLDS[state.get_num_diplomat_boxes_available()], "Patricians track is not high enough to send a diplomat to the left cohort"
+    assert state.patricians_track_boxes >= PATRICIANS_DIPLOMAT_THRESHOLDS[state.get_num_diplomat_boxes_used()], "Patricians track is not high enough to send a diplomat to the left cohort"
     assert state.diplomat_center_available == True, "Center diplomat action his not available"
     state.diplomat_center_available = False
     _add_valour_attribute_point(state)
@@ -2577,7 +2562,7 @@ def _send_center_diplomat(state: GameState):
 
 def _send_right_diplomat(state: GameState):
     assert state.has_diplomat_box_available(), "No diplomat boxes available to send a diplomat"
-    assert state.patricians_track_boxes >= PATRICIANS_DIPLOMAT_THRESHOLDS[state.get_num_diplomat_boxes_available()], "Patricians track is not high enough to send a diplomat to the left cohort"
+    assert state.patricians_track_boxes >= PATRICIANS_DIPLOMAT_THRESHOLDS[state.get_num_diplomat_boxes_used()], "Patricians track is not high enough to send a diplomat to the left cohort"
     assert state.diplomat_right_available == True, "Right diplomat action has is not available"
     state.diplomat_right_available = False
     _add_valour_attribute_point(state)
@@ -2938,36 +2923,6 @@ def _is_valid_scout_pattern_placement_5(state: GameState, row, col, rotated=Fals
                     state.is_scout_grid_box_available(row + 1, col)
 
 # Follow-up actions
-def _enforce_left_cohort(state: GameState):
-    assert state.status == GameStatus.STATE_ADVANCE_COHORT, "Game does not have the correct status to perform this action"
-    assert state.left_cohort_boxes < NUM_COHORTS_BOXES, "All left cohort boxes are already filled, cannot enforce the left cohort"
-    state.left_cohort_boxes += 1
-    if state.left_cohort_boxes in COHORT_DICIPLINE_THRESHOLDS:
-        _add_dicipline_attribute_point(state)
-    elif state.left_cohort_boxes in COHORT_VALOUR_THRESHOLDS:
-        _add_valour_attribute_point(state)
-    state.status = GameStatus.STATUS_MAIN_LOOP
-
-def _enforce_center_cohort(state: GameState):
-    assert state.status == GameStatus.STATE_ADVANCE_COHORT, "Game does not have the correct status to perform this action"
-    assert state.center_cohort_boxes < NUM_COHORTS_BOXES, "All center cohort boxes are already filled, cannot enforce the center cohort"
-    state.center_cohort_boxes += 1
-    if state.center_cohort_boxes in COHORT_DICIPLINE_THRESHOLDS:
-        _add_dicipline_attribute_point(state)
-    elif state.center_cohort_boxes in COHORT_VALOUR_THRESHOLDS:
-        _add_valour_attribute_point(state)
-    state.status = GameStatus.STATUS_MAIN_LOOP
-
-def _enforce_right_cohort(state: GameState):
-    assert state.status == GameStatus.STATE_ADVANCE_COHORT, "Game does not have the correct status to perform this action"
-    assert state.right_cohort_boxes < NUM_COHORTS_BOXES, "All right cohort boxes are already filled, cannot enforce the right cohort"
-    state.right_cohort_boxes += 1
-    if state.right_cohort_boxes in COHORT_DICIPLINE_THRESHOLDS:
-        _add_dicipline_attribute_point(state)
-    elif state.right_cohort_boxes in COHORT_VALOUR_THRESHOLDS:
-        _add_valour_attribute_point(state)
-    state.status = GameStatus.STATUS_MAIN_LOOP
-
 def _use_left_favour(state: GameState):
     assert state.status == GameStatus.STATUS_USE_FAVOURS, "Game does not have the correct status to perform this action"
     assert state.num_left_cohort_favours > 0, "No left cohort favours available to use"
