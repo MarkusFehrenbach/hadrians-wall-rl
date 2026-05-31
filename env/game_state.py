@@ -147,7 +147,7 @@ class GameState:
 
         # Priests
         self.priests_track_boxes = 0
-        self.large_garden_unlocked = False
+        self.small_garden_unlocked = False
         self.small_garden_built = False
         self.large_garden_unlocked = False
         self.large_garden_built = False
@@ -212,7 +212,7 @@ class GameState:
         ### Convert the game state to a normalized observation vector ###
         return np.array([
             # Game meta
-            self.current_round / MAX_ROUNDS,
+            1 - self.current_round / MAX_ROUNDS,
             self.num_pict_attacks / MAX_PICT_ATTACKS,
             self.left_cohort_incoming_disdain / MAX_PICT_ATTACKS,
             self.num_left_cohort_favours / MAX_FAVOURS,
@@ -322,7 +322,7 @@ class GameState:
 
             # Priests
             self.priests_track_boxes / NUM_CITIZEN_TRACK_BOXES,
-            self.large_garden_unlocked,
+            self.small_garden_unlocked,
             self.small_garden_built,
             self.large_garden_unlocked,
             self.large_garden_built,
@@ -400,8 +400,8 @@ class GameState:
 
     def draw_player_cards(self):
         assert(len(self.player_card_pile) >= 2, "There have to be at least two player cards in the player card pile!")
-        self.left_player_card_id = self.fate_card_pile.pop(0)["id"]
-        self.right_player_card_id = self.fate_card_pile.pop(0)["id"]
+        self.left_player_card_id = self.player_card_pile.pop(0)["id"]
+        self.right_player_card_id = self.player_card_pile.pop(0)["id"]
         self.player_card_revealed[self.left_player_card_id] = True
         self.player_card_revealed[self.right_player_card_id] = True
 

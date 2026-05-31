@@ -3,8 +3,8 @@ from typing import Dict, TYPE_CHECKING
 if TYPE_CHECKING:
     from .game_state import GameState
 
-from env import actions
-from env.actions import N_ACTIONS
+from . import actions
+from .actions import N_ACTIONS
 from .enums import GameStatus
 
 # --- Game rule constants --- #
@@ -258,7 +258,7 @@ def start_new_round(state: GameState):
     state.current_round += 1
     if state.current_round > MAX_ROUNDS:
         return
-    _reset_resources()
+    _reset_resources(state)
     _reset_per_round_flags(state)
     state.num_pict_attacks = NUM_PICT_ATTACKS[state.current_round - 1]
     state.draw_fate_card()
@@ -1028,9 +1028,9 @@ def _apply_scout_grid_pattern_5_action(state: GameState, action):
 
 # --- Game rules action validation functions --- #
 def get_valid_actions(state):
-    return [_validate_action(state, action) for action in range(N_ACTIONS)]
+    return [validate_action(state, action) for action in range(N_ACTIONS)]
 
-def _validate_action(state: GameState, action) -> bool:
+def validate_action(state: GameState, action) -> bool:
     if not _has_supplies(state, COSTS.get(action, {})):
         return False
     
@@ -1054,9 +1054,9 @@ def _validate_card_assignment_action(state: GameState, action) -> bool:
     match action:
         # Pick player card for this round
         case actions.ACTION_CARD_ASSIGNMENT_CHOOSE_LEFT_AS_PATH:
-            return state.status == GameStatus.STATUS_CARD_ASSIGNMENT
+            return state.status == GameStatus.STATUS_CHOOSE_PLAYER_CARD
         case actions.ACTION_CARD_ASSIGNMENT_CHOOSE_RIGHT_AS_PATH:
-            return state.status == GameStatus.STATUS_CARD_ASSIGNMENT
+            return state.status == GameStatus.STATUS_CHOOSE_PLAYER_CARD
         case _:
             raise ValueError(f"Invalid action ID: {action}")
     return False
@@ -1085,7 +1085,7 @@ def _validate_left_sheet_action(state: GameState, action) -> bool:
             return state.large_granary_unlocked and state.small_granary_built and not state.large_granary_built
         case actions.ACTION_USE_TRAINING_GROUNDS:
             return state.training_grounds_available and \
-                (state.training_grounds_boxes < NUM_TRAINING_GROUNDS_BOXES) and \
+                (state.training_grounds_boxes_available > 0) and \
                 (state.wall_guard_boxes < NUM_WALL_AND_FORT_BOXES)
         case actions.ACTION_BUILD_SMALL_HOTEL:
             return state.small_hotel_unlocked and not state.small_hotel_built
@@ -1108,7 +1108,7 @@ def _validate_left_sheet_action(state: GameState, action) -> bool:
                 actions.ACTION_USE_FORUM_BUILDER_SERVANT_TO_CIVILIAN | \
                 actions.ACTION_USE_FORUM_BUILDER_CIVILIAN_TO_SERVANT | \
                 actions.ACTION_USE_FORUM_SERVANT_CIVILIAN_TO_BUILDER:
-            return state.forum_available and (state.forum_boxes < NUM_FORUM_BOXES)
+            return state.forum_available and (state.forum_boxes_available > 0)
         case actions.ACTION_BUILD_LANDMARK_1:
             return state.landmark_1_unlocked and not state.landmark_1_built
         case actions.ACTION_BUILD_LANDMARK_2:
@@ -3130,7 +3130,7 @@ def _update_path_cards_points(state: GameState):
         count += int(state.resource_production_boxes / 3)
     # Player Card 7: Merchant
     if (state.player_card_is_path_card[6]):
-        count += max(int(state.market_boxes / 2 - 1), 0)
+        count += max(int(sum(1 for box in state.market_boxes if box) / 2 - 1), 0)
     # Player Card 8: Planner
     if (state.player_card_is_path_card[7]):
         num_completed_citician_tracks = state.get_num_completed_citizen_tracks()
@@ -3174,7 +3174,7 @@ def _update_disdain_malus_points(state: GameState):
         state.num_disdain_points = -22
 
 def get_final_score(state) -> int:
-    return state.self.renown_attribute_boxes \
+    return state.renown_attribute_boxes \
         + state.piety_attribute_boxes \
         + state.valour_attribute_boxes \
         + state.dicipline_attribute_boxes \

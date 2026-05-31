@@ -3,7 +3,7 @@ from gymnasium import spaces
 import numpy as np
 from env.game_state import GameState
 from env.actions import N_ACTIONS, N_OBSERVATIONS
-from env.rules import MAX_ROUNDS, get_valid_actions, apply_action, get_final_score
+from env.rules import MAX_ROUNDS, get_valid_actions, apply_action, validate_action, get_final_score
 
 class HadriansWallEnv(gym.Env):
 
@@ -28,6 +28,7 @@ class HadriansWallEnv(gym.Env):
         return obs, {}
     
     def step(self, action):
+        assert(validate_action(self.state, action), "Action is not valid")
         apply_action(self.state, action)
         obs = self.state.to_observation()
         done = (self.state.current_round > MAX_ROUNDS)
