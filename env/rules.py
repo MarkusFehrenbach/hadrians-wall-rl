@@ -4,6 +4,7 @@ if TYPE_CHECKING:
     from .game_state import GameState
 
 from env import actions
+from env.actions import N_ACTIONS
 from .enums import GameStatus
 
 # --- Game rule constants --- #
@@ -22,7 +23,7 @@ NUM_TOTAL_FATE_CARDS = NUM_LEFT_FATE_CARDS + NUM_CENTER_FATE_CARDS + NUM_RIGHT_F
 # Player cards
 NUM_PLAYER_CARDS = 12
 
-# Left board state thresholds
+# Left sheet state thresholds
 COHORT_DICIPLINE_THRESHOLDS = [3, 6]
 COHORT_VALOUR_THRESHOLDS = [5]
 MINING_AND_FORESTING_THRESHOLDS = [2, 5, 8, 11, 14]
@@ -53,20 +54,20 @@ SMALL_ROAD_INFRASTRUCTURE_THRESHOLD = 4
 LARGE_ROAD_INFRASTRUCTURE_THRESHOLD = 8
 LANDMARK_ATTRIBUTE_POINTS_THRESHOLD = 15
 
-# Left board state
-NUM_COHORTS_SLOTS = 6
-NUM_MINING_AND_FORESTING_SLOTS = 14
-NUM_WALL_GUARD_SLOTS = WALL_GUARD_SECTION_THRESHOLDS[2]
-NUM_CIPPI_SLOTS = 7
-NUM_WALL_AND_FORT_SLOTS = WALL_AND_FORT_SECTION_THRESHOLDS[2]
-RESOURCE_PRODUCTION_SLOTS = 9
-NUM_TRAINING_GROUNDS_SLOTS = 5
-NUM_FORUM_SLOTS = 4
+# Left sheet state
+NUM_COHORTS_BOXES = 6
+NUM_MINING_AND_FORESTING_BOXES = 14
+NUM_WALL_GUARD_BOXES = WALL_GUARD_SECTION_THRESHOLDS[2]
+NUM_CIPPI_BOXES = 7
+NUM_WALL_AND_FORT_BOXES = WALL_AND_FORT_SECTION_THRESHOLDS[2]
+RESOURCE_PRODUCTION_BOXES = 9
+NUM_TRAINING_GROUNDS_BOXES = 5
+NUM_FORUM_BOXES = 4
 ATTRIBUTE_POINTS_PER_TRACK = 25
-NUM_DISDAIN_SLOTS = 15
+NUM_DISDAIN_BOXES = 15
 MAX_INFRASTRUCTURE_LEVEL = 8
 
-# Right board state thresholds
+# Right sheet state thresholds
 # Traders
 TRADERS_BUILDERS_THRESHOLDS = [3, 7]
 TRADERS_SERVANTS_THRESHOLDS = [1]
@@ -118,32 +119,32 @@ PATRICIANS_RENOWN_THRESHOLDS = [4, 6, 8]
 PATRICIANS_DIPLOMAT_THRESHOLDS = [1, 3, 6]
 PATRICIANS_SCOUTS_THRESHOLDS = [2, 4, 5, 7, 9]
 
-# Right board state
-NUM_CITIZEN_TRACK_SLOTS = 9
+# Right sheet state
+NUM_CITIZEN_TRACK_BOXES = 9
 
 # Traders
-NUM_MARKET_SLOTS = 8
-TRADERS_MARKET_SERVANT_SLOT = 7
-TRADERS_MARKET_BUILDER_SLOT = 8
+NUM_MARKET_BOXES = 8
+TRADERS_MARKET_SERVANT_BOX = 7
+TRADERS_MARKET_BUILDER_BOX = 8
 
 # Performers
-NUM_THEATER_SLOTS = 6
-NUM_GLADIATOR_SLOTS = 6
+NUM_THEATER_BOXES = 6
+NUM_GLADIATOR_BOXES = 6
 
 # Priests
-NUM_SMALL_TEMPLE_SLOTS = 1
-NUM_MEDIUM_TEMPLE_SLOTS = 3
-NUM_LARGE_TEMPLE_SLOTS = 3
+NUM_SMALL_TEMPLE_BOXES = 1
+NUM_MEDIUM_TEMPLE_BOXES = 3
+NUM_LARGE_TEMPLE_BOXES = 3
 
 # Apparitores
-NUM_BATHS_SLOTS = 6
+NUM_BATHS_BOXES = 6
 MAX_NUM_BRIBES_PER_ROUND = 2
 APPARITORES_BATHS_BRIBE_COSTS = [1, 1, 2, 2, 3, 3]
 MAX_NUM_COURTHOUSE_ACTIONS = 3
 
 # Patricians
-NUM_DIPLOTMAT_SLOTS = 3
-NUM_SCOUTS_SLOTS = 5
+NUM_DIPLOTMAT_BOXES = 3
+NUM_SCOUTS_BOXES = 5
 NUM_SCOUTS_GRID_ROWS = 4
 NUM_SCOUTS_GRID_COLS = 5
 PATRICIANS_SCOUTS_GRID_RESOURCES = [(0, 0), (0, 4), (3, 0), (3, 2), (3, 4),]
@@ -166,7 +167,7 @@ DICIPLINE_ADD_VALOUR_THRESHOLD = 17
 
 # Cost dict
 COSTS = {
-    # Left board action costs
+    # Left sheet action costs
     actions.ACTION_ADVANCE_MINING_AND_FORESTING: {"servants": 1},
     actions.ACTION_ADVANCE_WALL_GUARD: {"solders": 1},
     actions.ACTION_ADVANCE_CIPPI: {"resources": 1},
@@ -196,7 +197,7 @@ COSTS = {
     actions.ACTION_BUILD_LANDMARK_3: {"builders": 1, "resources": 2},
     actions.ACTION_BUILD_LANDMARK_4: {"builders": 1, "resources": 2},
 
-    # Right board action costs
+    # Right sheet action costs
     # Traders
     actions.ACTION_ADVANCE_TRADERS_TRACK: {"civilians": 1},
     actions.ACTION_BUILD_SMALL_PRECINCT: {"servants": 1, "civilians": 1},
@@ -253,19 +254,17 @@ COSTS = {
 }
 
 # --- Game rules flow functions --- #
-def _start_new_round(state: GameState):
+def start_new_round(state: GameState):
     state.current_round += 1
     if state.current_round > MAX_ROUNDS:
         return
-    state.status = GameStatus.STATUS_INIT
     _reset_resources()
     _reset_per_round_flags(state)
     state.num_pict_attacks = NUM_PICT_ATTACKS[state.current_round - 1]
     state.draw_fate_card()
     _add_resource_from_fate_card(state)
-    _add_resource_from_left_board(state)
+    _add_resource_from_left_sheet(state)
     state.draw_player_cards()
-    state.draw_neighbor_cards()
     if state.large_road_built:
         state.status = GameStatus.STATUS_CHOOSE_TWO_ATTRIBUTES
     elif state.small_road_built:
@@ -276,40 +275,80 @@ def _start_new_round(state: GameState):
 def _reset_per_round_flags(state: GameState):
     state.left_cohort_incoming_disdain = 0
     state.center_cohort_incoming_disdain = 0
-    state.right_cohort_incoming_disdain = 0    
-    state.left_fate_cards_remaining = NUM_LEFT_FATE_CARDS
-    state.center_fate_cards_remaining = NUM_CENTER_FATE_CARDS
-    state.right_fate_cards_remaining = NUM_RIGHT_FATE_CARDS
+    state.right_cohort_incoming_disdain = 0
     state.training_grounds_available = True
     state.forum_available = True
-    state.theater_used = False
-    state.gladiator_1_battled = False
-    state.gladiator_2_battled = False
-    state.baths_slots_available = MAX_NUM_BRIBES_PER_ROUND
-    state.courthouse_get_servant_used = False
-    state.courthouse_builder_to_two_servants_used = False
-    state.courthouse_servant_to_builder_used = False
+    state.theater_available = True
+    state.gladiator_1_can_battle = True
+    state.gladiator_2_can_battle = True
+    state.baths_boxes_available = MAX_NUM_BRIBES_PER_ROUND
+    state.courthouse_get_servant_available = True
+    state.courthouse_builder_to_two_servants_available = True
+    state.courthouse_servant_to_builder_available = True
+
+def _start_pict_attack(state: GameState):
+    assert(state.status == GameStatus.STATUS_MAIN_LOOP, "The game status is not correct")
+    num_pict_attacks = NUM_PICT_ATTACKS[state.current_round - 1]
+    num_pict_attacks_left = 0
+    num_pict_attacks_center = 0
+    num_pict_attacks_right = 0
+    for _ in range(num_pict_attacks):
+        state.draw_fate_card()
+        pict_attack_direction = state.get_current_fate_card_pict_attack_direction()
+        if pict_attack_direction == "left":
+            num_pict_attacks_left += 1
+        elif pict_attack_direction == "center":
+            num_pict_attacks_center += 1
+        elif pict_attack_direction == "right":
+            num_pict_attacks_right += 1
+        else:
+            assert(False, f"Unknown pict attack direction {pict_attack_direction}")
+    state.left_cohort_incoming_disdain = max(0, state.left_cohort_boxes - num_pict_attacks_left)
+    state.center_cohort_incoming_disdain = max(0, state.center_cohort_boxes - num_pict_attacks_center)
+    state.right_cohort_incoming_disdain = max(0, state.right_cohort_boxes - num_pict_attacks_left)
+    if (state.left_cohort_incoming_disdain > 0 and (state.num_left_cohort_favours > 0 or state.num_general_favours > 0)) or \
+            (state.center_cohort_incoming_disdain > 0 and (state.num_center_cohort_favours > 0 or state.num_general_favours > 0)) or \
+            (state.right_cohort_incoming_disdain > 0 and (state.num_right_cohort_favours > 0 or state.num_general_favours > 0)):
+        state.status == GameStatus.STATUS_USE_FAVOURS
+    else:
+        _end_round(state)  
+
+def _end_round(state: GameState):
+    state.num_disdain += state.left_cohort_incoming_disdain
+    state.num_disdain += state.center_cohort_incoming_disdain
+    state.num_disdain += state.right_cohort_incoming_disdain
+    start_new_round(state)
+    
 
 # --- Game rules apply action functions --- #
 def apply_action(state: GameState, action):
+    # Increase action counter
+    state.action_counter += 1
+
     # Pay costs upfront. If action is free, this will just be a no-op.
-    _pay_from_supply(state, costs=COSTS.get(action, {}))
+    costs=COSTS.get(action, {})
+    assert(_has_supplies(state, costs=costs), "Not enough supplies for this action")
+    _pay_from_supply(state, costs=costs)
 
     # Take specified action
     match action:
         case action if action in actions.ACTIONS_CARD_ASSIGNMENT:
             _apply_card_assignment_action(state, action)
-        case action if action in actions.ACTIONS_LEFT_BOARD:
-            _apply_left_board_action(state, action)
-        case action if action in actions.ACTIONS_RIGHT_BOARD:
-            _apply_right_board_action(state, action)
+        case action if action in actions.ACTIONS_LEFT_SHEET:
+            _apply_left_sheet_action(state, action)
+        case action if action in actions.ACTIONS_RIGHT_SHEET:
+            _apply_right_sheet_action(state, action)
         case action if action in actions.ACTIONS_FOLLOW_UP:
             _apply_follow_up_action(state, action)
         case actions.ACTION_END_ROUND:
-            pass
+            if state.status == GameStatus.STATUS_MAIN_LOOP:
+                _start_pict_attack(state)
+            elif state.status == GameStatus.STATUS_USE_FAVOURS:
+                _end_round(state)
         case _:
             raise ValueError(f"Unknown action: {action}")    
     _update_path_cards_points(state)
+    _update_disdain_malus_points(state)
 
 def _apply_card_assignment_action(state: GameState, action):
     match action:
@@ -320,7 +359,7 @@ def _apply_card_assignment_action(state: GameState, action):
         case _:
             raise ValueError(f"Unknown card assignment action: {action}")
 
-def _apply_left_board_action(state: GameState, action):
+def _apply_left_sheet_action(state: GameState, action):
     match action:
         case actions.ACTION_ADVANCE_COHORT_LEFT:
             _add_cohort_left(state)
@@ -394,7 +433,7 @@ def _apply_left_board_action(state: GameState, action):
         case actions.ACTION_BUILD_LANDMARK_4:
             _build_landmark_4(state)
 
-def _apply_right_board_action(state: GameState, action):
+def _apply_right_sheet_action(state: GameState, action):
     match action:
         case action if action in actions.ACTIONS_TRADERS:
             _apply_trader_action(state, action)
@@ -477,47 +516,47 @@ def _apply_trader_action(state: GameState, action):
         case actions.ACTION_BUILD_MARKET:
             _build_market(state)
         case actions.ACTION_BUY_GOODS_FATE_CARD:
-            index = state.get_next_free_market_slot()
-            assert(index != TRADERS_MARKET_SERVANT_SLOT - 1 and index != TRADERS_MARKET_BUILDER_SLOT - 1, "Index of market slot does not match the chosen action")
+            index = state.get_next_free_market_box()
+            assert(index != TRADERS_MARKET_SERVANT_BOX - 1 and index != TRADERS_MARKET_BUILDER_BOX - 1, "Index of market box does not match the chosen action")
             state.draw_fate_card()
             goods_id = state.get_current_fate_card_goods_id()
             _buy_goods(state, goods_id)
         case actions.ACTION_BUY_GOODS_NEIGHBOR_CARD_1:
-            index = state.get_next_free_market_slot()
-            assert(index != TRADERS_MARKET_SERVANT_SLOT - 1 and index != TRADERS_MARKET_BUILDER_SLOT - 1, "Index of market slot does not match the chosen action")
+            index = state.get_next_free_market_box()
+            assert(index != TRADERS_MARKET_SERVANT_BOX - 1 and index != TRADERS_MARKET_BUILDER_BOX - 1, "Index of market box does not match the chosen action")
             goods_id = state.get_neighbor_prospect_card_1_goods_id()
             assert(goods_id is not None, "Neighbor does not have a prospect card 1 to buy goods from")
             _buy_goods(state, goods_id)
         case actions.ACTION_BUY_GOODS_NEIGHBOR_CARD_2:
-            index = state.get_next_free_market_slot()
-            assert(index != TRADERS_MARKET_SERVANT_SLOT - 1 and index != TRADERS_MARKET_BUILDER_SLOT - 1, "Index of market slot does not match the chosen action")
+            index = state.get_next_free_market_box()
+            assert(index != TRADERS_MARKET_SERVANT_BOX - 1 and index != TRADERS_MARKET_BUILDER_BOX - 1, "Index of market box does not match the chosen action")
             goods_id = state.get_neighbor_prospect_card_2_goods_id()
             assert(goods_id is not None, "Neighbor does not have a prospect card 2 to buy goods from")
             _buy_goods(state, goods_id)
         case action.ACTION_BUY_GOODS_7_FATE_CARD:
             state.draw_fate_card()
             goods_id = state.get_current_fate_card_goods_id()
-            _buy_goods(state, goods_id, index=TRADERS_MARKET_SERVANT_SLOT - 1)
+            _buy_goods(state, goods_id, index=TRADERS_MARKET_SERVANT_BOX - 1)
         case action.ACTION_BUY_GOODS_7_NEIGHBOR_CARD_1:
             goods_id = state.get_neighbor_prospect_card_1_goods_id()
             assert(goods_id is not None, "Neighbor does not have a prospect card 1 to buy goods from")
-            _buy_goods(state, goods_id, index=TRADERS_MARKET_SERVANT_SLOT - 1)
+            _buy_goods(state, goods_id, index=TRADERS_MARKET_SERVANT_BOX - 1)
         case action.ACTION_BUY_GOODS_7_NEIGHBOR_CARD_2:
             goods_id = state.get_neighbor_prospect_card_2_goods_id()
             assert(goods_id is not None, "Neighbor does not have a prospect card 2 to buy goods from")
-            _buy_goods(state, goods_id, index=TRADERS_MARKET_SERVANT_SLOT - 1)
+            _buy_goods(state, goods_id, index=TRADERS_MARKET_SERVANT_BOX - 1)
         case action.ACTION_BUY_GOODS_8_FATE_CARD:
             state.draw_fate_card()
             goods_id = state.get_current_fate_card_goods_id()
-            _buy_goods(state, goods_id, index=TRADERS_MARKET_BUILDER_SLOT - 1)
+            _buy_goods(state, goods_id, index=TRADERS_MARKET_BUILDER_BOX - 1)
         case action.ACTION_BUY_GOODS_8_NEIGHBOR_CARD_1:
             goods_id = state.get_neighbor_prospect_card_1_goods_id()
             assert(goods_id is not None, "Neighbor does not have a prospect card 1 to buy goods from")
-            _buy_goods(state, goods_id, index=TRADERS_MARKET_BUILDER_SLOT - 1)
+            _buy_goods(state, goods_id, index=TRADERS_MARKET_BUILDER_BOX - 1)
         case action.ACTION_BUY_GOODS_8_NEIGHBOR_CARD_2:
             goods_id = state.get_neighbor_prospect_card_2_goods_id()
             assert(goods_id is not None, "Neighbor does not have a prospect card 2 to buy goods from")
-            _buy_goods(state, goods_id, index=TRADERS_MARKET_BUILDER_SLOT - 1)
+            _buy_goods(state, goods_id, index=TRADERS_MARKET_BUILDER_BOX - 1)
 
 def _apply_performer_action(state: GameState, action):
     match action:
@@ -991,7 +1030,10 @@ def _apply_scout_grid_pattern_5_action(state: GameState, action):
 
 
 # --- Game rules action validation functions --- #
-def validate_action(state: GameState, action) -> bool:
+def get_valid_actions(state):
+    return [_validate_action(state, action) for action in range(N_ACTIONS)]
+
+def _validate_action(state: GameState, action) -> bool:
     if not _has_supplies(state, COSTS.get(action, {})):
         return False
     
@@ -999,14 +1041,14 @@ def validate_action(state: GameState, action) -> bool:
         # Pick player card for this round
         case action if action in actions.ACTIONS_CARD_ASSIGNMENT:
             return _validate_card_assignment_action(state, action)
-        case action if action in actions.ACTIONS_LEFT_BOARD:
-            _validate_left_board_action(state, action)
-        case action if action in actions.ACTIONS_RIGHT_BOARD:
-            _validate_right_board_action(state, action)
+        case action if action in actions.ACTIONS_LEFT_SHEET:
+            _validate_left_sheet_action(state, action)
+        case action if action in actions.ACTIONS_RIGHT_SHEET:
+            _validate_right_sheet_action(state, action)
         case action if action in actions.ACTIONS_FOLLOW_UP:
             _validate_follow_up_action(state, action)
         case actions.ACTION_END_ROUND:
-            pass
+            return state.status in [GameStatus.STATUS_MAIN_LOOP, GameStatus.STATUS_USE_FAVOURS]
         case _:
             raise ValueError(f"Invalid action ID: {action}")
     return False
@@ -1022,34 +1064,32 @@ def _validate_card_assignment_action(state: GameState, action) -> bool:
             raise ValueError(f"Invalid action ID: {action}")
     return False
 
-def _validate_left_board_action(state: GameState, action) -> bool:
+def _validate_left_sheet_action(state: GameState, action) -> bool:
+    if action in actions.ACTIONS_ADVANCE_COHORT:
+        return _validate_advance_cohort_action(state, action)
+
+    if state.status != GameStatus.STATUS_MAIN_LOOP:
+        return False
+
     match action:
-        case actions.ACTION_ADVANCE_COHORT_LEFT:
-            return (state.status == GameStatus.STATUS_ADVANCE_COHORT) and \
-                (state.left_cohort_slots < NUM_COHORTS_SLOTS)
-        case actions.ACTION_ADVANCE_COHORT_CENTER:
-            return (state.status == GameStatus.STATUS_ADVANCE_COHORT) and \
-                (state.center_cohort_slots < NUM_COHORTS_SLOTS)
-        case actions.ACTION_ADVANCE_COHORT_RIGHT:
-            return (state.status == GameStatus.STATUS_ADVANCE_COHORT) and \
-                (state.right_cohort_slots < NUM_COHORTS_SLOTS)
         case actions.ACTION_ADVANCE_MINING_AND_FORESTING:
-            return (state.mining_and_foresting_slots < NUM_MINING_AND_FORESTING_SLOTS)
+            return (state.mining_and_foresting_boxes < NUM_MINING_AND_FORESTING_BOXES)
         case actions.ACTION_ADVANCE_WALL_GUARD:
-            return (state.wall_guard_slots < NUM_WALL_AND_FORT_SLOTS)
+            return (state.wall_guard_boxes < NUM_WALL_AND_FORT_BOXES)
         case actions.ACTION_ADVANCE_CIPPI:
-            return (state.cippi_slots < state.cippi_slots_unlocked)
+            return (state.cippi_boxes < state.cippi_boxes_unlocked)
         case actions.ACTION_ADVANCE_WALL:
-            return (state.wall_guard_slots < state.wall_and_fort_slots_unlocked)
+            return (state.wall_guard_boxes < state.wall_and_fort_boxes_unlocked)
         case actions.ACTION_ADVANCE_FORT_PAY_SOLDIER | actions.ACTION_ADVANCE_FORT_PAY_BUILDER:
-            return (state.fort_slots < state.wall_and_fort_slots_unlocked)
+            return (state.fort_boxes < state.wall_and_fort_boxes_unlocked)
         case actions.ACTION_BUILD_SMALL_GRANARY:
             return state.small_granary_unlocked and not state.small_granary_built
         case actions.ACTION_BUILD_LARGE_GRANARY:
             return state.large_granary_unlocked and state.small_granary_built and not state.large_granary_built
         case actions.ACTION_USE_TRAINING_GROUNDS:
             return state.training_grounds_available and \
-                (state.training_grounds_slots < NUM_TRAINING_GROUNDS_SLOTS)
+                (state.training_grounds_boxes < NUM_TRAINING_GROUNDS_BOXES) and \
+                (state.wall_guard_boxes < NUM_WALL_AND_FORT_BOXES)
         case actions.ACTION_BUILD_SMALL_HOTEL:
             return state.small_hotel_unlocked and not state.small_hotel_built
         case actions.ACTION_BUILD_LARGE_HOTEL:
@@ -1071,7 +1111,7 @@ def _validate_left_board_action(state: GameState, action) -> bool:
                 actions.ACTION_USE_FORUM_BUILDER_SERVANT_TO_CIVILIAN | \
                 actions.ACTION_USE_FORUM_BUILDER_CIVILIAN_TO_SERVANT | \
                 actions.ACTION_USE_FORUM_SERVANT_CIVILIAN_TO_BUILDER:
-            return state.forum_available and (state.forum_slots < NUM_FORUM_SLOTS)
+            return state.forum_available and (state.forum_boxes < NUM_FORUM_BOXES)
         case actions.ACTION_BUILD_LANDMARK_1:
             return state.landmark_1_unlocked and not state.landmark_1_built
         case actions.ACTION_BUILD_LANDMARK_2:
@@ -1084,7 +1124,22 @@ def _validate_left_board_action(state: GameState, action) -> bool:
             raise ValueError(f"Invalid action ID: {action}")
     return False
 
-def _validate_right_board_action(state: GameState, action):
+def _validate_advance_cohort_action(state: GameState, action) -> bool:
+    if state.status != GameStatus.STATUS_ADVANCE_COHORT:
+        return False
+
+    match action:
+        case actions.ACTION_ADVANCE_COHORT_LEFT:
+            return (state.left_cohort_boxes < NUM_COHORTS_BOXES)
+        case actions.ACTION_ADVANCE_COHORT_CENTER:
+            return (state.center_cohort_boxes < NUM_COHORTS_BOXES)
+        case actions.ACTION_ADVANCE_COHORT_RIGHT:
+            return (state.right_cohort_boxes < NUM_COHORTS_BOXES)
+        case _:
+            raise ValueError(f"Invalid action ID: {action}")
+    return False
+
+def _validate_right_sheet_action(state: GameState, action):
     match action:
         case action if action in actions.ACTIONS_TRADERS:
             return _validate_trader_action(state, action)
@@ -1101,12 +1156,47 @@ def _validate_right_board_action(state: GameState, action):
     return False
 
 def _validate_follow_up_action(state: GameState, action):
+    match action:
+        case actions.ACTION_ENFORCE_LEFT_COHORT:
+            return (state.status == GameStatus.STATUS_ADVANCE_COHORT) and \
+                (state.left_cohort_boxes < NUM_COHORTS_BOXES)
+        case actions.ACTION_ENFORCE_CENTER_COHORT:
+            return (state.status == GameStatus.STATUS_ADVANCE_COHORT) and \
+                (state.center_cohort_boxes < NUM_COHORTS_BOXES)
+        case actions.ACTION_ENFORCE_RIGHT_COHORT:
+            return (state.status == GameStatus.STATUS_ADVANCE_COHORT) and \
+                (state.right_cohort_boxes < NUM_COHORTS_BOXES)
+        case actions.ACTION_RECEIVE_ATTRIBUTE_RENOWN:
+            return (state.status in [GameStatus.STATUS_CHOOSE_RENOWN_OR_VALOUR, \
+                    GameStatus.STATUS_CHOOSE_TWO_ATTRIBUTES, \
+                    GameStatus.STATUS_CHOOSE_ATTRIBUTE]) and \
+                state.renown_attribute_boxes < ATTRIBUTE_POINTS_PER_TRACK
+        case actions.ACTION_RECEIVE_ATTRIBUTE_PIETY:
+            return (state.status in [GameStatus.STATUS_CHOOSE_PIETY_OR_DISCIPLINE, \
+                    GameStatus.STATUS_CHOOSE_TWO_ATTRIBUTES, \
+                    GameStatus.STATUS_CHOOSE_ATTRIBUTE]) and \
+                state.piety_attribute_boxes < ATTRIBUTE_POINTS_PER_TRACK
+        case actions.ACTION_RECEIVE_ATTRIBUTE_VALOUR:
+            return (state.status in [GameStatus.STATUS_CHOOSE_RENOWN_OR_VALOUR, \
+                    GameStatus.STATUS_CHOOSE_TWO_ATTRIBUTES, \
+                    GameStatus.STATUS_CHOOSE_ATTRIBUTE]) and \
+                state.valour_attribute_boxes < ATTRIBUTE_POINTS_PER_TRACK
+        case actions.ACTION_RECEIVE_ATTRIBUTE_DISCIPLINE:
+            return (state.status in [GameStatus.STATUS_CHOOSE_PIETY_OR_DISCIPLINE, \
+                    GameStatus.STATUS_CHOOSE_TWO_ATTRIBUTES, \
+                    GameStatus.STATUS_CHOOSE_ATTRIBUTE]) and \
+                state.dicipline_attribute_boxes < ATTRIBUTE_POINTS_PER_TRACK
+        case _:
+            raise ValueError(f"Unknown action: {action}")
     return False
 
 def _validate_trader_action(state: GameState, action) -> bool:
+    if state.status != GameStatus.STATUS_MAIN_LOOP:
+        return False
+    
     match action:
         case actions.ACTION_ADVANCE_TRADERS_TRACK:
-            return (state.traders_track_slots < NUM_CITIZEN_TRACK_SLOTS)
+            return (state.traders_track_boxes < NUM_CITIZEN_TRACK_BOXES)
         case actions.ACTION_BUILD_SMALL_PRECINCT:
             return state.small_precinct_unlocked and not state.small_precinct_built
         case actions.ACTION_BUILD_MEDIUM_PRECINCT:
@@ -1116,66 +1206,71 @@ def _validate_trader_action(state: GameState, action) -> bool:
         case actions.ACTION_BUILD_MARKET:
             return state.market_unlocked and not state.market_built
         case actions.ACTION_BUY_GOODS_FATE_CARD | actions.ACTION_BUY_GOODS_NEIGHBOR_CARD_1 | actions.ACTION_BUY_GOODS_NEIGHBOR_CARD_2:
-            if not state.market_built or not state.has_free_market_slot():
+            index = state.get_next_free_market_box()
+            if not state.market_built or (index is None):
                 return False
-            index = state.get_next_free_market_slot()
-            return (index is not None) and \
-                (index != TRADERS_MARKET_SERVANT_SLOT- 1) and \
-                (index != TRADERS_MARKET_BUILDER_SLOT - 1)
+            return (index != TRADERS_MARKET_SERVANT_BOX - 1) and \
+                (index != TRADERS_MARKET_BUILDER_BOX - 1)
         case actions.ACTION_BUY_GOODS_7_FATE_CARD | actions.ACTION_BUY_GOODS_7_NEIGHBOR_CARD_1 | actions.ACTION_BUY_GOODS_7_NEIGHBOR_CARD_2:
-            return state.market_built and state.market_slots_unlocked >= TRADERS_MARKET_SERVANT_SLOT and not state.market_slots[TRADERS_MARKET_SERVANT_SLOT - 1]
+            return state.market_built and state.market_boxes_unlocked >= TRADERS_MARKET_SERVANT_BOX and not state.market_boxes[TRADERS_MARKET_SERVANT_BOX - 1]
         case actions.ACTION_BUY_GOODS_8_FATE_CARD | actions.ACTION_BUY_GOODS_8_NEIGHBOR_CARD_1 | actions.ACTION_BUY_GOODS_8_NEIGHBOR_CARD_2:
-            return state.market_built and state.market_slots_unlocked >= TRADERS_MARKET_BUILDER_SLOT and not state.market_slots[TRADERS_MARKET_BUILDER_SLOT - 1]
+            return state.market_built and state.market_boxes_unlocked >= TRADERS_MARKET_BUILDER_BOX and not state.market_boxes[TRADERS_MARKET_BUILDER_BOX - 1]
         case _:
             raise ValueError(f"Unknown action: {action}")
     return False
 
 def _validate_performer_action(state: GameState, action) -> bool:
+    if state.status != GameStatus.STATUS_MAIN_LOOP:
+        return False
+    
     match action:
         case actions.ACTION_ADVANCE_PERFORMERS_TRACK:
-            return (state.performers_track_slots < NUM_CITIZEN_TRACK_SLOTS)
+            return (state.performers_track_boxes < NUM_CITIZEN_TRACK_BOXES)
         case actions.ACTION_BUILD_THEATER:
             return state.theater_unlocked and not state.theater_built
         case actions.ACTION_ARRANGE_PERFORMANCE_1:
-            return state.theater_built and state.theater_slots_unlocked >= 1 and not state.theater_slots[0] and not state.theater_used
+            return state.theater_built and state.theater_boxes_unlocked >= 1 and not state.theater_boxes[0] and state.theater_available
         case actions.ACTION_ARRANGE_PERFORMANCE_2:
-            return state.theater_built and state.theater_slots_unlocked >= 2 and not state.theater_slots[1] and not state.theater_used
+            return state.theater_built and state.theater_boxes_unlocked >= 2 and not state.theater_boxes[1] and state.theater_available
         case actions.ACTION_ARRANGE_PERFORMANCE_3:
-            return state.theater_built and state.theater_slots_unlocked >= 3 and not state.theater_slots[2] and not state.theater_used
+            return state.theater_built and state.theater_boxes_unlocked >= 3 and not state.theater_boxes[2] and state.theater_available
         case actions.ACTION_ARRANGE_PERFORMANCE_4:
-            return state.theater_built and state.theater_slots_unlocked >= 4 and not state.theater_slots[3] and not state.theater_used
+            return state.theater_built and state.theater_boxes_unlocked >= 4 and not state.theater_boxes[3] and state.theater_available
         case actions.ACTION_ARRANGE_PERFORMANCE_5:
-            return state.theater_built and state.theater_slots_unlocked >= 5 and not state.theater_slots[4] and not state.theater_used
+            return state.theater_built and state.theater_boxes_unlocked >= 5 and not state.theater_boxes[4] and state.theater_available
         case actions.ACTION_ARRANGE_PERFORMANCE_6:
-            return state.theater_built and state.theater_slots_unlocked >= 6 and not state.theater_slots[5] and not state.theater_used
+            return state.theater_built and state.theater_boxes_unlocked >= 6 and not state.theater_boxes[5] and state.theater_available
         case actions.ACTION_BUILD_COLOSSEUM:
             return state.colosseum_unlocked and not state.colosseum_built
         case actions.ACTION_TRAIN_GLADIATOR_1_SERVANT | actions.ACTION_TRAIN_GLADIATOR_1_CIVILIAN:
             return state.colosseum_built and \
                 state.is_gladiator_1_alive() and \
-                (state.gladiator_1_strength < state.gladiator_slots_unlocked)
+                (state.gladiator_1_strength < state.gladiator_boxes_unlocked)
         case actions.ACTION_TRAIN_GLADIATOR_1_SERVANT_AND_FIGHT | actions.ACTION_TRAIN_GLADIATOR_1_CIVILIAN_AND_FIGHT:
             return state.colosseum_built and \
                 state.is_gladiator_1_alive() and \
-                not state.gladiator_1_battled and \
-                (state.gladiator_1_strength < state.gladiator_slots_unlocked)
+                state.gladiator_1_can_battle and \
+                (state.gladiator_1_strength < state.gladiator_boxes_unlocked)
         case actions.ACTION_TRAIN_GLADIATOR_2_SERVANT | actions.ACTION_TRAIN_GLADIATOR_2_CIVILIAN:
             return state.colosseum_built and \
                 state.is_gladiator_2_alive() and \
-                (state.gladiator_2_strength < state.gladiator_slots_unlocked)
+                (state.gladiator_2_strength < state.gladiator_boxes_unlocked)
         case actions.ACTION_TRAIN_GLADIATOR_2_SERVANT_AND_FIGHT | actions.ACTION_TRAIN_GLADIATOR_2_CIVILIAN_AND_FIGHT:
             return state.colosseum_built and \
                 state.is_gladiator_2_alive() and \
-                not state.gladiator_2_battled and \
-                (state.gladiator_2_strength < state.gladiator_slots_unlocked)
+                state.gladiator_2_can_battle and \
+                (state.gladiator_2_strength < state.gladiator_boxes_unlocked)
         case _:
             raise ValueError(f"Unknown action: {action}")
     return False
 
 def _validate_priest_action(state: GameState, action) -> bool:
+    if state.status != GameStatus.STATUS_MAIN_LOOP:
+        return False
+    
     match action:
         case actions.ACTION_ADVANCE_PRIESTS_TRACK:
-            return (state.priests_track_slots < NUM_CITIZEN_TRACK_SLOTS)
+            return (state.priests_track_boxes < NUM_CITIZEN_TRACK_BOXES)
         case actions.ACTION_BUILD_SMALL_GARDEN:
             return state.small_garden_unlocked and not state.small_garden_built
         case actions.ACTION_BUILD_LARGE_GARDEN:
@@ -1188,47 +1283,54 @@ def _validate_priest_action(state: GameState, action) -> bool:
                 actions.ACTION_FILL_SMALL_TEMPLE_CIVILIAN:
             return state.small_temple_built and not state.is_small_temple_filled()
         case actions.ACTION_BUILD_MEDIUM_TEMPLE:
-            return state.medium_temple_unlocked and state.is_small_temple_filled() and not state.medium_temple_built
+            return state.medium_temple_unlocked and state.small_temple_built and not state.medium_temple_built
         case actions.ACTION_FILL_MEDIUM_TEMPLE_SOLDIER | \
                 actions.ACTION_FILL_MEDIUM_TEMPLE_BUILDER | \
                 actions.ACTION_FILL_MEDIUM_TEMPLE_SERVANT | \
                 actions.ACTION_FILL_MEDIUM_TEMPLE_CIVILIAN:
-            return state.medium_temple_built and (state.medium_temple_slots < state.medium_temple_slots_unlocked)
+            return state.medium_temple_built and \
+                state.is_small_temple_filled() and \
+                (state.medium_temple_boxes < state.medium_temple_boxes_unlocked)
         case actions.ACTION_BUILD_LARGE_TEMPLE:
-            return state.large_temple_unlocked and state.is_medium_temple_filled() and not state.large_temple_built
+            return state.large_temple_unlocked and state.medium_temple_built and not state.large_temple_built
         case actions.ACTION_FILL_LARGE_TEMPLE_SOLDIER | \
                 actions.ACTION_FILL_LARGE_TEMPLE_BUILDER | \
                 actions.ACTION_FILL_LARGE_TEMPLE_SERVANT | \
                 actions.ACTION_FILL_LARGE_TEMPLE_CIVILIAN:
-            return state.large_temple_built and (state.large_temple_slots < state.large_temple_slots_unlocked)
+            return state.large_temple_built and \
+                state.is_medium_temple_filled() and \
+                (state.large_temple_boxes < state.large_temple_boxes_unlocked)
         case _:
             raise ValueError(f"Unknown action: {action}")
     return False
 
 def _validate_apparitore_action(state: GameState, action) -> bool:
+    if state.status != GameStatus.STATUS_MAIN_LOOP:
+        return False
+    
     match action:
         case actions.ACTION_ADVANCE_APPARITORES_TRACK:
-            return (state.apparitores_track_slots < NUM_CITIZEN_TRACK_SLOTS)
+            return (state.apparitores_track_boxes < NUM_CITIZEN_TRACK_BOXES)
         case actions.ACTION_BUILD_BATHS:
             return state.baths_unlocked and not state.baths_built
         case actions.ACTION_PAY_BRIBE:
             return state.baths_built and \
-                (state.baths_slots_available > 0) and \
-                (state.baths_slots < state.baths_slots_unlocked)
+                (state.baths_boxes_available > 0) and \
+                (state.baths_boxes < state.baths_boxes_unlocked)
         case actions.ACTION_BUILD_COURTHOUSE:
             return state.courthouse_unlocked and not state.courthouse_built
         case actions.ACTION_COURTHOUSE_GET_SERVANT:
             return state.courthouse_built and \
-                not state.courthouse_get_servant_used and \
-                (state.courthouse_get_servant_slots < state.courthouse_get_servant_slots)
+                state.courthouse_get_servant_available and \
+                (state.courthouse_get_servant_boxes < state.courthouse_get_servant_unlocked)
         case actions.ACTION_COURTHOUSE_BUILDER_TO_TWO_SERVANTS:
             return state.courthouse_built and \
-                not state.courthouse_builder_to_two_servants_used and \
-                (state.courthouse_builder_to_two_servants_slots < state.courthouse_builder_to_two_servants_unlocked)
+                state.courthouse_builder_to_two_servants_available and \
+                (state.courthouse_builder_to_two_servants_boxes < state.courthouse_builder_to_two_servants_unlocked)
         case actions.ACTION_COURTHOUSE_SERVANT_TO_BUILDER:
             return state.courthouse_built and \
-                not state.courthouse_servant_to_builder_unlocked and \
-                (state.courthouse_servant_to_builder_slots < state.courthouse_servant_to_builder_unlocked)
+                state.courthouse_servant_to_builder_available and \
+                (state.courthouse_servant_to_builder_boxes < state.courthouse_servant_to_builder_unlocked)
         case _:
             raise ValueError(f"Unknown action: {action}")
     return False
@@ -1236,25 +1338,35 @@ def _validate_apparitore_action(state: GameState, action) -> bool:
 def _validate_patrician_action(state: GameState, action) -> bool:
     match action:
         case actions.ACTION_ADVANCE_PATRICIANS_TRACK:
-            return (state.patricians_track_slots < NUM_CITIZEN_TRACK_SLOTS)
+            return (state.status == GameStatus.STATUS_MAIN_LOOP) and \
+                (state.patricians_track_boxes < NUM_CITIZEN_TRACK_BOXES)
         case actions.ACTION_SEND_LEFT_DIPLOMAT:
-            return not state.diplomat_left_used and state.has_diplomat_slot_available()
+            return (state.status == GameStatus.STATUS_MAIN_LOOP) and \
+                state.diplomat_left_available and \
+                state.has_diplomat_box_available()
         case actions.ACTION_SEND_CENTER_DIPLOMAT:
-            return not state.diplomat_center_used and state.has_diplomat_slot_available()
+            return (state.status == GameStatus.STATUS_MAIN_LOOP) and \
+                state.diplomat_center_available and \
+                state.has_diplomat_box_available()
         case actions.ACTION_SEND_RIGHT_DIPLOMAT:
-            return not state.diplomat_right_used and state.has_diplomat_slot_available()
+            return (state.status == GameStatus.STATUS_MAIN_LOOP) and \
+                state.diplomat_right_available and \
+                state.has_diplomat_box_available()
         case actions.ACTION_SEND_SCOUT_PROSPECT_CARD:
-            if state.scouts_slots >= state.scouts_slots_unlocked:
+            if (state.status != GameStatus.STATUS_MAIN_LOOP) or \
+                (state.scouts_boxes >= state.scouts_boxes_unlocked):
                 return False
             pattern_id = state.get_current_prospect_card_scout_pattern_id()
             return _has_any_valid_scout_pattern_placement(pattern_id)
         case actions.ACTION_SEND_SCOUT_NEIGHBOR_CARD_1:
-            if state.scouts_slots >= state.scouts_slots_unlocked:
+            if (state.status != GameStatus.STATUS_MAIN_LOOP) or \
+                (state.scouts_boxes >= state.scouts_boxes_unlocked):
                 return False
             pattern_id = state.get_neighbor_prospect_card_1_scout_pattern_id()
             return _has_any_valid_scout_pattern_placement(pattern_id)
         case actions.ACTION_SEND_SCOUT_NEIGHBOR_CARD_2:
-            if state.scouts_slots >= state.scouts_slots_unlocked:
+            if (state.status != GameStatus.STATUS_MAIN_LOOP) or \
+                (state.scouts_boxes >= state.scouts_boxes_unlocked):
                 return False
             pattern_id = state.get_neighbor_prospect_card_2_scout_pattern_id()
             return _has_any_valid_scout_pattern_placement(pattern_id)
@@ -1265,6 +1377,9 @@ def _validate_patrician_action(state: GameState, action) -> bool:
     return False
 
 def _validate_scout_grid_pattern_action(state: GameState, action) -> bool:
+    if (state.status != GameStatus.STATUS_SEND_SCOUT):
+        return False
+
     match action:
         case actions.ACTION_SEND_SCOUT_GRID_1:
             return _validate_scout_grid_pattern_1_action(state, action)
@@ -1281,6 +1396,9 @@ def _validate_scout_grid_pattern_action(state: GameState, action) -> bool:
     return False
 
 def _validate_scout_grid_pattern_1_action(state: GameState, action) -> bool:
+    if state.chosen_scout_pattern != 1:
+        return False
+
     match action:
         case actions.ACTION_PLACE_SCOUT_PATTERN_1_POSITION_0_0:
             return _is_valid_scout_pattern_placement_1(state, row=0, col=0)
@@ -1310,6 +1428,9 @@ def _validate_scout_grid_pattern_1_action(state: GameState, action) -> bool:
             raise ValueError(f"Unknown action: {action}")
 
 def _validate_scout_grid_pattern_2_action(state: GameState, action) -> bool:
+    if state.chosen_scout_pattern != 2:
+        return False
+
     match action:
         case actions.ACTION_PLACE_SCOUT_PATTERN_2_POSITION_0_0:
             return _is_valid_scout_pattern_placement_2(state, row=0, col=0)
@@ -1341,6 +1462,9 @@ def _validate_scout_grid_pattern_2_action(state: GameState, action) -> bool:
             raise ValueError(f"Unknown action: {action}")
 
 def _validate_scout_grid_pattern_3_action(state: GameState, action) -> bool:
+    if state.chosen_scout_pattern != 3:
+        return False
+
     match action:
         case actions.ACTION_PLACE_SCOUT_PATTERN_3_POSITION_0_0:
             return _is_valid_scout_pattern_placement_3(state, row=0, col=0)
@@ -1414,6 +1538,9 @@ def _validate_scout_grid_pattern_3_action(state: GameState, action) -> bool:
             raise ValueError(f"Unknown action: {action}")
 
 def _validate_scout_grid_pattern_4_action(state: GameState, action) -> bool:
+    if state.chosen_scout_pattern != 4:
+        return False
+    
     match action:
         case actions.ACTION_PLACE_SCOUT_PATTERN_4_POSITION_0_0:
             return _is_valid_scout_pattern_placement_4(state, row=0, col=0)
@@ -1487,6 +1614,9 @@ def _validate_scout_grid_pattern_4_action(state: GameState, action) -> bool:
             raise ValueError(f"Unknown action: {action}")
 
 def _validate_scout_grid_pattern_5_action(state: GameState, action) -> bool:
+    if state.chosen_scout_pattern != 5:
+        return False
+    
     match action:
         case actions.ACTION_PLACE_SCOUT_PATTERN_5_POSITION_0_0:
             return _is_valid_scout_pattern_placement_5(state, row=0, col=0)
@@ -1683,9 +1813,9 @@ def _pay_from_supply(state, costs: Dict[str, int]):
         assert(state.num_resources >= costs["resources"], "Not enough resources to pay the cost")
         state.num_resources -= costs["resources"]
 
-def _add_resource_production_slot(state: GameState):
-    assert(state.resource_production_slots < RESOURCE_PRODUCTION_SLOTS, "All resource production slots are already filled")
-    state.resource_production_slots += 1
+def _add_resource_production_box(state: GameState):
+    assert(state.resource_production_boxes < RESOURCE_PRODUCTION_BOXES, "All resource production boxes are already filled")
+    state.resource_production_boxes += 1
 
 def _reset_resources(state: GameState):
     state.num_soldiers = 0
@@ -1708,8 +1838,8 @@ def _add_resources_from_prospect_card(state: GameState):
     state.num_civilians += state.get_current_prospect_card_num_civilians()
     state.num_resources += state.get_current_prospect_card_num_resources()
 
-def _add_resource_from_left_board(state: GameState):
-    state.num_resources += state.resource_production_slots
+def _add_resource_from_left_sheet(state: GameState):
+    state.num_resources += state.resource_production_boxes
     if state.large_hotel_built:
         state.num_civilians += 2
     elif state.small_hotel_built:
@@ -1723,101 +1853,104 @@ def _add_resource_from_left_board(state: GameState):
 # Choose player cards for path and prospect
 def _add_left_player_card_to_path(state: GameState):
     assert(state.status == GameStatus.STATUS_CHOOSE_PLAYER_CARD, "The game status is not correct")
-    assert(state.left_player_card_id is not None, "There has to be one left card to choose from!")
-    assert(state.right_player_card_id is not None, "There has to be one right card to choose from!")
+    assert(state.left_player_card_id is not None, "There has to be one left card to choose from")
+    assert(state.right_player_card_id is not None, "There has to be one right card to choose from")
     state.player_card_is_path_card[state.left_player_card_id] = True
     state.current_prospect_card_id = state.right_player_card_id
+    state.draw_neighbor_cards()
     _add_resources_from_prospect_card(state)
     state.status = GameStatus.STATUS_MAIN_LOOP
 
 def _add_right_player_card_to_path(state: GameState):
     assert(state.status == GameStatus.STATUS_CHOOSE_PLAYER_CARD, "The game status is not correct")
-    assert(state.left_player_card_id is not None, "There has to be one left card to choose from!")
-    assert(state.right_player_card_id is not None, "There has to be one right card to choose from!")
+    assert(state.left_player_card_id is not None, "There has to be one left card to choose from")
+    assert(state.right_player_card_id is not None, "There has to be one right card to choose from")
     state.player_card_is_path_card[state.right_player_card_id] = True
     state.current_prospect_card_id = state.left_player_card_id
+    state.draw_neighbor_cards()
     _add_resources_from_prospect_card(state)
     state.status = GameStatus.STATUS_MAIN_LOOP
 
 
 # Cohorts
 def _add_cohort_left(state: GameState):
-    assert(state.left_cohort_slots < NUM_COHORTS_SLOTS, "All left cohort slots are already filled")
-    state.left_cohort_slots += 1
-    if state.left_cohort_slots in COHORT_DICIPLINE_THRESHOLDS:
+    assert(state.status == GameStatus.STATUS_ADVANCE_COHORT, "The game status is not correct")
+    assert(state.left_cohort_boxes < NUM_COHORTS_BOXES, "All left cohort boxes are already filled")
+    state.left_cohort_boxes += 1
+    if state.left_cohort_boxes in COHORT_DICIPLINE_THRESHOLDS:
         _add_dicipline_attribute_point(state)
-    if state.left_cohort_slots in COHORT_VALOUR_THRESHOLDS:
+    if state.left_cohort_boxes in COHORT_VALOUR_THRESHOLDS:
         _add_valour_attribute_point(state)
     state.status = GameStatus.STATUS_MAIN_LOOP
 
 def _add_cohort_center(state: GameState):
-    assert(state.center_cohort_slots < NUM_COHORTS_SLOTS, "All center cohort slots are already filled")
-    state.center_cohort_slots += 1
-    if state.center_cohort_slots in COHORT_DICIPLINE_THRESHOLDS:
+    assert(state.status == GameStatus.STATUS_ADVANCE_COHORT, "The game status is not correct")
+    assert(state.center_cohort_boxes < NUM_COHORTS_BOXES, "All center cohort boxes are already filled")
+    state.center_cohort_boxes += 1
+    if state.center_cohort_boxes in COHORT_DICIPLINE_THRESHOLDS:
         _add_dicipline_attribute_point(state)
-    if state.center_cohort_slots in COHORT_VALOUR_THRESHOLDS:
+    if state.center_cohort_boxes in COHORT_VALOUR_THRESHOLDS:
         _add_valour_attribute_point(state)
     state.status = GameStatus.STATUS_MAIN_LOOP
 
 def _add_cohort_right(state: GameState):
-    assert(state.right_cohort_slots < NUM_COHORTS_SLOTS, "All right cohort slots are already filled")
-    state.right_cohort_slots += 1
-    if state.right_cohort_slots in COHORT_DICIPLINE_THRESHOLDS:
+    assert(state.status == GameStatus.STATUS_ADVANCE_COHORT, "The game status is not correct")
+    assert(state.right_cohort_boxes < NUM_COHORTS_BOXES, "All right cohort boxes are already filled")
+    state.right_cohort_boxes += 1
+    if state.right_cohort_boxes in COHORT_DICIPLINE_THRESHOLDS:
         _add_dicipline_attribute_point(state)
-    if state.right_cohort_slots in COHORT_VALOUR_THRESHOLDS:
+    if state.right_cohort_boxes in COHORT_VALOUR_THRESHOLDS:
         _add_valour_attribute_point(state)
     state.status = GameStatus.STATUS_MAIN_LOOP
 
 
-# Left board
+# Left sheet
 def _advance_mining_and_foresting(state: GameState):
-    assert(state.mining_and_foresting_slots < NUM_MINING_AND_FORESTING_SLOTS, "All mining and foresting slots are already filled")
-    state.mining_and_foresting_slots += 1
-    if state.mining_and_foresting_slots in MINING_AND_FORESTING_THRESHOLDS:
+    assert(state.mining_and_foresting_boxes < NUM_MINING_AND_FORESTING_BOXES, "All mining and foresting boxes are already filled")
+    state.mining_and_foresting_boxes += 1
+    if state.mining_and_foresting_boxes in MINING_AND_FORESTING_THRESHOLDS:
         state.num_resources += 1
-        _add_resource_production_slot(state)
+        _add_resource_production_box(state)
 
 def _advance_wall_guard(state: GameState):
-    assert(state.wall_guard_slots < NUM_WALL_GUARD_SLOTS, "All wall guard slots are already filled")
-    state.wall_guard_slots += 1
-    if state.wall_guard_slots in WALL_GUARD_DICIPLINE_THRESHOLDS:
+    assert(state.wall_guard_boxes < NUM_WALL_GUARD_BOXES, "All wall guard boxes are already filled")
+    state.wall_guard_boxes += 1
+    if state.wall_guard_boxes in WALL_GUARD_DICIPLINE_THRESHOLDS:
         _add_dicipline_attribute_point(state)
-    elif state.wall_guard_slots in WALL_GUARD_COHORT_THRESHOLDS:
+    elif state.wall_guard_boxes in WALL_GUARD_COHORT_THRESHOLDS:
         state.status = GameStatus.STATUS_ADVANCE_COHORT
 
 def _advance_cippi(state: GameState):
-    assert(state.cippi_slots < NUM_CIPPI_SLOTS, "All cippi slots are already filled")
-    assert(state.cippi_slots < state.cippi_slots_unlocked, "The next cippi slot is not unlocked yet")
-    state.cippi_slots += 1
-    if state.cippi_slots in CIPPI_COHORT_THRESHOLDS:
+    assert(state.cippi_boxes < NUM_CIPPI_BOXES, "All cippi boxes are already filled")
+    assert(state.cippi_boxes < state.cippi_boxes_unlocked, "The next cippi box is not unlocked yet")
+    state.cippi_boxes += 1
+    if state.cippi_boxes in CIPPI_COHORT_THRESHOLDS:
         state.status = GameStatus.STATUS_ADVANCE_COHORT
-    elif state.cippi_slots in CIPPI_CIVILIAN_THRESHOLDS:
+    elif state.cippi_boxes in CIPPI_CIVILIAN_THRESHOLDS:
         state.num_civilians += 1
-    elif state.cippi_slots in CIPPI_RENOWN_THRESHOLDS:
+    elif state.cippi_boxes in CIPPI_RENOWN_THRESHOLDS:
         _add_renown_attribute_point(state)
 
 def _advance_wall(state: GameState):
-    assert(state.wall_slots < NUM_WALL_AND_FORT_SLOTS, "All wall and fort slots are already filled")
-    assert(state.wall_slots < state.wall_and_fort_slots_unlocked, "The next wall slot is not unlocked yet")
-    state.wall_slots += 1
-    if state.wall_slots in WALL_CITICIAN_THRESHOLDS:
+    assert(state.wall_boxes < NUM_WALL_AND_FORT_BOXES, "All wall and fort boxes are already filled")
+    assert(state.wall_boxes < state.wall_and_fort_boxes_unlocked, "The next wall box is not unlocked yet")
+    state.wall_boxes += 1
+    if state.wall_boxes in WALL_CITICIAN_THRESHOLDS:
         state.num_civilians += 1
     else:
-        if state.wall_slots in WALL_RENOWN_THRESHOLDS:
+        if state.wall_boxes in WALL_RENOWN_THRESHOLDS:
             _add_renown_attribute_point(state)
-        if state.wall_slots in WALL_COHORT_THRESHOLDS:
+        if state.wall_boxes in WALL_COHORT_THRESHOLDS:
             state.status = GameStatus.STATUS_ADVANCE_COHORT
 
 def _advance_fort(state: GameState):
-    assert(state.fort_slots < NUM_WALL_AND_FORT_SLOTS, "All wall and fort slots are already filled")
-    assert(state.fort_slots < state.wall_and_fort_slots_unlocked, "The next fort slot is not unlocked yet")
-    state.fort_slots += 1
-    if state.fort_slots in CIPPI_FORT_SECTION_THRESHOLDS:
-        state.cippi_slots_unlocked += 1
+    assert(state.fort_boxes < NUM_WALL_AND_FORT_BOXES, "All wall and fort boxes are already filled")
+    assert(state.fort_boxes < state.wall_and_fort_boxes_unlocked, "The next fort box is not unlocked yet")
+    state.fort_boxes += 1
+    if state.fort_boxes in CIPPI_FORT_SECTION_THRESHOLDS:
+        state.cippi_boxes_unlocked += 1
     
-    if state.fort_slots in FORT_CITICIAN_THRESHOLDS:
-        state.num_civilians += 1
-    elif state.fort_slots in FORT_INFRASTRUCTURE_THRESHOLDS:
+    if state.fort_boxes in FORT_INFRASTRUCTURE_THRESHOLDS:
         assert(state.infrastructure_level < MAX_INFRASTRUCTURE_LEVEL, "Infrastructure level is already at maximum")
         state.infrastructure_level += 1
         state.small_granary_unlocked = state.small_granary_unlocked or (state.infrastructure_level >= SMALL_GRANARY_INFRASTRUCTURE_THRESHOLD)
@@ -1828,10 +1961,12 @@ def _advance_fort(state: GameState):
         state.large_workshop_unlocked = state.large_workshop_unlocked or (state.infrastructure_level >= LARGE_WORKSHOP_INFRASTRUCTURE_THRESHOLD)
         state.small_road_unlocked = state.small_road_unlocked or (state.infrastructure_level >= SMALL_ROAD_INFRASTRUCTURE_THRESHOLD)
         state.large_road_unlocked = state.large_road_unlocked or (state.infrastructure_level >= LARGE_ROAD_INFRASTRUCTURE_THRESHOLD)
+    elif state.fort_boxes in FORT_CITICIAN_THRESHOLDS:
+        state.num_civilians += 1
     else:
-        if state.fort_slots in FORT_DICIPLINE_THRESHOLDS:
+        if state.fort_boxes in FORT_DICIPLINE_THRESHOLDS:
             _add_dicipline_attribute_point(state)
-        if state.fort_slots in FORT_COHORT_THRESHOLDS:
+        if state.fort_boxes in FORT_COHORT_THRESHOLDS:
             state.status = GameStatus.STATUS_ADVANCE_COHORT
 
 def _build_small_granary(state: GameState):
@@ -1839,7 +1974,7 @@ def _build_small_granary(state: GameState):
     assert(state.infrastructure_level >= SMALL_GRANARY_INFRASTRUCTURE_THRESHOLD, "Infrastructure level is not high enough to build the small granary")
     assert(state.small_granary_built == False, "Small granary is already built")
     state.small_granary_built = True
-    state.fort_and_wall_slots_unlocked = max(state.fort_and_wall_slots_unlocked, SMALL_GRANARY_FORT_AND_WALL_UNLOCK)
+    state.fort_and_wall_boxes_unlocked = max(state.fort_and_wall_boxes_unlocked, SMALL_GRANARY_FORT_AND_WALL_UNLOCK)
 
 def _build_large_granary(state: GameState):
     assert(state.large_granary_unlocked, "Large granary action is not unlocked yet")
@@ -1847,14 +1982,15 @@ def _build_large_granary(state: GameState):
     assert(state.small_granary_built == True, "Small granary must be built before building the large granary")
     assert(state.large_granary_built == False, "Large granary is already built")
     state.large_granary_built = True
-    state.fort_and_wall_slots_unlocked = max(state.fort_and_wall_slots_unlocked, LARGE_GRANARY_FORT_AND_WALL_UNLOCK)
+    state.fort_and_wall_boxes_unlocked = max(state.fort_and_wall_boxes_unlocked, LARGE_GRANARY_FORT_AND_WALL_UNLOCK)
     _add_renown_attribute_point(state)
 
 def _use_training_grounds(state: GameState):
     assert(state.training_grounds_available, "Training grounds action is not available")
-    assert(state.training_grounds_slots < NUM_TRAINING_GROUNDS_SLOTS, "All training grounds slots are already filled")
-    state.training_grounds_slots += 1
+    assert(state.training_grounds_boxes < NUM_TRAINING_GROUNDS_BOXES, "All training grounds boxes are already filled")
+    state.training_grounds_boxes += 1
     state.training_grounds_available = False
+    state.training_grounds_rounds.append(state.current_round)
     _advance_wall_guard(state)
 
 def _build_small_hotel(state: GameState):
@@ -1894,7 +2030,9 @@ def _build_small_road(state: GameState):
     assert(state.infrastructure_level >= SMALL_ROAD_INFRASTRUCTURE_THRESHOLD, "Infrastructure level is not high enough to build the small road")
     assert(state.small_road_built == False, "Small road is already built")
     state.small_road_built = True
-    state.status = GameStatus.STATUS_CHOOSE_PIETY_OR_DISCIPLINE
+    if (state.piety_attribute_boxes < ATTRIBUTE_POINTS_PER_TRACK) or \
+            (state.dicipline_attribute_boxes < ATTRIBUTE_POINTS_PER_TRACK):
+        state.status = GameStatus.STATUS_CHOOSE_PIETY_OR_DISCIPLINE
 
 def _build_large_road(state: GameState):
     assert(state.large_road_unlocked, "Large road action is not unlocked yet")
@@ -1902,109 +2040,113 @@ def _build_large_road(state: GameState):
     assert(state.small_road_built == True, "Small road must be built before building the large road")
     assert(state.large_road_built == False, "Large road is already built")
     state.large_road_built = True
-    state.status = GameStatus.STATUS_CHOOSE_RENOWN_OR_VALOUR
+    if (state.renown_attribute_boxes < ATTRIBUTE_POINTS_PER_TRACK) or \
+            (state.valour_attribute_boxes < ATTRIBUTE_POINTS_PER_TRACK):
+        state.status = GameStatus.STATUS_CHOOSE_RENOWN_OR_VALOUR
 
 def _use_forum(state: GameState):
     assert(state.forum_available, "Forum action is not available")
-    assert(state.forum_slots < NUM_FORUM_SLOTS, "All forum slots are already filled")
-    state.forum_slots += 1
+    assert(state.forum_boxes < NUM_FORUM_BOXES, "All forum boxes are already filled")
+    state.forum_boxes += 1
     state.forum_available = False
+    state.forum_rounds.append(state.current_round)
 
 def _build_landmark_1(state: GameState):
     assert(state.landmark_1_unlocked, "Landmark 1 action is not unlocked yet")
-    assert(state.num_renown_attribute_slots >= LANDMARK_ATTRIBUTE_POINTS_THRESHOLD, "Not enough renown attribute points to build landmark 1")
+    assert(state.num_renown_attribute_boxes >= LANDMARK_ATTRIBUTE_POINTS_THRESHOLD, "Not enough renown attribute points to build landmark 1")
     assert(state.landmark_1_built == False, "Landmark 1 is already built")
     state.landmark_1_built = True
     _add_valour_attribute_point(state, num_points=2)
 
 def _build_landmark_2(state: GameState):
     assert(state.landmark_2_unlocked, "Landmark 2 action is not unlocked yet")
-    assert(state.num_piety_attribute_slots >= LANDMARK_ATTRIBUTE_POINTS_THRESHOLD, "Not enough piety attribute points to build landmark 2")
+    assert(state.num_piety_attribute_boxes >= LANDMARK_ATTRIBUTE_POINTS_THRESHOLD, "Not enough piety attribute points to build landmark 2")
     assert(state.landmark_2_built == False, "Landmark 2 is already built")
     state.landmark_2_built = True
     _add_dicipline_attribute_point(state, num_points=2)
 
 def _build_landmark_3(state: GameState):
     assert(state.landmark_3_unlocked, "Landmark 3 action is not unlocked yet")
-    assert(state.num_valour_attribute_slots >= LANDMARK_ATTRIBUTE_POINTS_THRESHOLD, "Not enough valour attribute points to build landmark 3")
+    assert(state.num_valour_attribute_boxes >= LANDMARK_ATTRIBUTE_POINTS_THRESHOLD, "Not enough valour attribute points to build landmark 3")
     assert(state.landmark_3_built == False, "Landmark 3 is already built")
     state.landmark_3_built = True
     _add_piety_attribute_point(state, num_points=2)
 
 def _build_landmark_4(state: GameState):
     assert(state.landmark_4_unlocked, "Landmark 4 action is not unlocked yet")
-    assert(state.num_dicipline_attribute_slots >= LANDMARK_ATTRIBUTE_POINTS_THRESHOLD, "Not enough dicipline attribute points to build landmark 4")
+    assert(state.num_dicipline_attribute_boxes >= LANDMARK_ATTRIBUTE_POINTS_THRESHOLD, "Not enough dicipline attribute points to build landmark 4")
     assert(state.landmark_4_built == False, "Landmark 4 is already built")
     state.landmark_4_built = True
     _add_renown_attribute_point(state, num_points=2)
 
 
-# Right board
+# Right sheet
 # Traders
 def _advance_traders_track(state: GameState):
-    assert(state.traders_track_slots < NUM_CITIZEN_TRACK_SLOTS, "All traders track slots are already filled")
-    state.traders_track_slots += 1
+    assert(state.traders_track_boxes < NUM_CITIZEN_TRACK_BOXES, "All traders track boxes are already filled")
+    state.traders_track_boxes += 1
 
-    state.small_precinct_unlocked = state.small_precinct_unlocked or (state.traders_track_slots >= TRADERS_SMALL_PRECINCT_THRESHOLD)
-    state.medium_precinct_unlocked = state.medium_precinct_unlocked or (state.traders_track_slots >= TRADERS_MEDIUM_PRECINCT_THRESHOLD)
-    state.large_precinct_unlocked = state.large_precinct_unlocked or (state.traders_track_slots >= TRADERS_LARGE_PRECINCT_THRESHOLD)
-    state.market_unlocked = state.market_unlocked or (state.traders_track_slots >= TRADERS_MARKET_THRESHOLD)
-    state.market_slots_unlocked = sum(1 for threshold in TRADERS_MARKET_THRESHOLDS if state.traders_track_slots >= threshold)
+    state.small_precinct_unlocked = state.small_precinct_unlocked or (state.traders_track_boxes >= TRADERS_SMALL_PRECINCT_THRESHOLD)
+    state.medium_precinct_unlocked = state.medium_precinct_unlocked or (state.traders_track_boxes >= TRADERS_MEDIUM_PRECINCT_THRESHOLD)
+    state.large_precinct_unlocked = state.large_precinct_unlocked or (state.traders_track_boxes >= TRADERS_LARGE_PRECINCT_THRESHOLD)
+    state.market_unlocked = state.market_unlocked or (state.traders_track_boxes >= TRADERS_MARKET_THRESHOLD)
+    state.market_boxes_unlocked = sum(1 for threshold in TRADERS_MARKET_THRESHOLDS if state.traders_track_boxes >= threshold)
 
-    if state.traders_track_slots in TRADERS_BUILDERS_THRESHOLDS:
+    if state.traders_track_boxes in TRADERS_BUILDERS_THRESHOLDS:
         state.num_builders += 1
-    elif state.traders_track_slots in TRADERS_SERVANTS_THRESHOLDS:
+    elif state.traders_track_boxes in TRADERS_SERVANTS_THRESHOLDS:
         state.num_servants += 1
-    elif state.traders_track_slots in TRADERS_RESOURCES_THRESHOLDS:
+    elif state.traders_track_boxes in TRADERS_RESOURCES_THRESHOLDS:
         state.num_resources += 1
-    elif state.traders_track_slots in TRADERS_RENOWN_THRESHOLDS:
+    elif state.traders_track_boxes in TRADERS_RENOWN_THRESHOLDS:
         _add_renown_attribute_point(state)    
 
 def _build_small_precinct(state: GameState):
     assert(state.small_precinct_unlocked, "Small precinct action is not unlocked yet")
-    assert(state.traders_track_slots >= TRADERS_SMALL_PRECINCT_THRESHOLD, "Traders track is not high enough to build the small precinct")
+    assert(state.traders_track_boxes >= TRADERS_SMALL_PRECINCT_THRESHOLD, "Traders track is not high enough to build the small precinct")
     assert(state.small_precinct_built == False, "Small precinct is already built")
     state.small_precinct_built = True
     state.num_resources += 1
-    _add_resource_production_slot(state)
+    _add_resource_production_box(state)
     _add_piety_attribute_point(state)
 
 def _build_medium_precinct(state: GameState):
     assert(state.medium_precinct_unlocked, "Medium precinct action is not unlocked yet")
-    assert(state.traders_track_slots >= TRADERS_MEDIUM_PRECINCT_THRESHOLD, "Traders track is not high enough to build the medium precinct")
+    assert(state.traders_track_boxes >= TRADERS_MEDIUM_PRECINCT_THRESHOLD, "Traders track is not high enough to build the medium precinct")
     assert(state.small_precinct_built == True, "Small precinct must be built before building the medium precinct")
     assert(state.medium_precinct_built == False, "Medium precinct is already built")
     state.medium_precinct_built = True
     state.num_resources += 1
-    _add_resource_production_slot(state)
+    _add_resource_production_box(state)
     _add_dicipline_attribute_point(state)
 
 def _build_large_precinct(state: GameState):
     assert(state.large_precinct_unlocked, "Large precinct action is not unlocked yet")
-    assert(state.traders_track_slots >= TRADERS_LARGE_PRECINCT_THRESHOLD, "Traders track is not high enough to build the large precinct")
+    assert(state.traders_track_boxes >= TRADERS_LARGE_PRECINCT_THRESHOLD, "Traders track is not high enough to build the large precinct")
     assert(state.small_precinct_built == True, "Small precinct must be built before building the large precinct")
     assert(state.medium_precinct_built == True, "Medium precinct must be built before building the large precinct")
     assert(state.large_precinct_built == False, "Large precinct is already built")
     state.large_precinct_built = True
     state.num_resources += 1
-    _add_resource_production_slot(state)
+    _add_resource_production_box(state)
     _add_renown_attribute_point(state)
 
-def _build_market(state: GameState):#
+def _build_market(state: GameState):
     assert(state.market_unlocked, "Market action is not unlocked yet")
-    assert(state.traders_track_slots >= TRADERS_MARKET_THRESHOLD, "Traders track is not high enough to build the market")
+    assert(state.traders_track_boxes >= TRADERS_MARKET_THRESHOLD, "Traders track is not high enough to build the market")
     assert(state.market_built == False, "Market is already built")
     state.market_built = True
+    _add_renown_attribute_point(state)
 
 def _buy_goods(state, goods_id, index=None):
     assert(state.market_built, "Market is not built yet")
-    assert(state.has_free_market_slot(), "No free market slots available to buy goods")
-    assert(index is None or 0 <= index < state.market_slots_unlocked, "Market slot index out of bounds")
-    assert(index is None or state.market_slots[index] == False, "Market slot is not free")
+    assert(state.has_free_market_box(), "No free market boxes available to buy goods")
+    assert(index is None or (0 <= index < state.market_boxes_unlocked), "Market box index out of bounds")
+    assert(index is None or (state.market_boxes[index] == False), "Market box is not free")
 
     num_distinct_goods_before = state.get_num_distinct_goods()
     if index is None:
-        index = state.get_next_free_market_slot()
+        index = state.get_next_free_market_box()
     state.add_good_to_market(goods_id, index)
     num_distinct_goods_after = state.get_num_distinct_goods()
     if num_distinct_goods_after > num_distinct_goods_before:
@@ -2014,111 +2156,117 @@ def _buy_goods(state, goods_id, index=None):
             _add_renown_attribute_point(state, num_points=2)
         elif num_distinct_goods_after == 6:
             _add_renown_attribute_point(state, num_points=3)
-    if index == TRADERS_MARKET_SERVANT_SLOT - 1:
+    if index == TRADERS_MARKET_SERVANT_BOX - 1:
         state.num_servants += 1
-    if index == TRADERS_MARKET_BUILDER_SLOT - 1:
+    elif index == TRADERS_MARKET_BUILDER_BOX - 1:
         state.num_builders += 1
 
 # Performers
 def _advance_performers_track(state: GameState):
-    assert(state.performers_track_slots < NUM_CITIZEN_TRACK_SLOTS, "All performers track slots are already filled")
-    state.performers_track_slots += 1
+    assert(state.performers_track_boxes < NUM_CITIZEN_TRACK_BOXES, "All performers track boxes are already filled")
+    state.performers_track_boxes += 1
 
-    state.theater_unlocked = state.theater_unlocked or (state.performers_track_slots >= PERFORMERS_THEATER_THRESHOLD)
-    state.colosseum_unlocked = state.colosseum_unlocked or (state.performers_track_slots >= PERFORMERS_COLOSSEUM_THRESHOLD)
-    state.gladiator_slots_unlocked = sum(1 for threshold in PERFORMERS_COLOSSEUM_TRAINING_THRESHOLDS if state.performers_track_slots >= threshold)
-    state.theater_slots_unlocked = sum(1 for threshold in PERFORMERS_THEATER_ARRANGE_PERFORMANCE_THRESHOLDS if state.performers_track_slots >= threshold)
-
-    if state.performers_track_slots in PERFORMERS_SOLDIERS_THRESHOLDS:
+    state.theater_unlocked = state.theater_unlocked or (state.performers_track_boxes >= PERFORMERS_THEATER_THRESHOLD)
+    state.theater_boxes_unlocked = sum(1 for threshold in PERFORMERS_THEATER_ARRANGE_PERFORMANCE_THRESHOLDS if state.performers_track_boxes >= threshold)
+    state.colosseum_unlocked = state.colosseum_unlocked or (state.performers_track_boxes >= PERFORMERS_COLOSSEUM_THRESHOLD)
+    state.gladiator_boxes_unlocked = sum(1 for threshold in PERFORMERS_COLOSSEUM_TRAINING_THRESHOLDS if state.performers_track_boxes >= threshold)
+    
+    if state.performers_track_boxes in PERFORMERS_SOLDIERS_THRESHOLDS:
         state.num_soldiers += 1
-    elif state.performers_track_slots in PERFORMERS_BUILDERS_THRESHOLDS:
+    elif state.performers_track_boxes in PERFORMERS_BUILDERS_THRESHOLDS:
         state.num_builders += 1
-    elif state.performers_track_slots in PERFORMERS_SERVANTS_THRESHOLDS:
+    elif state.performers_track_boxes in PERFORMERS_SERVANTS_THRESHOLDS:
         state.num_servants += 1
-    elif state.performers_track_slots in PERFORMERS_RENOWN_THRESHOLDS:
+    elif state.performers_track_boxes in PERFORMERS_RENOWN_THRESHOLDS:
         _add_renown_attribute_point(state)
 
 def _build_theater(state: GameState):
     assert(state.theater_unlocked, "Theater action is not unlocked yet")
-    assert(state.performers_track_slots >= PERFORMERS_THEATER_THRESHOLD, "Performers track is not high enough to build the theater")
+    assert(state.performers_track_boxes >= PERFORMERS_THEATER_THRESHOLD, "Performers track is not high enough to build the theater")
     assert(state.theater_built == False, "Theater is already built")
     state.theater_built = True
     _add_renown_attribute_point(state)
 
 def _arrange_performance_1(state: GameState):
-    assert(state.theater_slots_unlocked[0] == True, "Theater slot has not been unlocked yet")
-    assert(state.performers_track_slots >= PERFORMERS_THEATER_ARRANGE_PERFORMANCE_THRESHOLDS[0], f"Performers track is not high enough to arrange performance 1")
+    assert(state.theater_boxes_unlocked[0] == True, "Theater box has not been unlocked yet")
+    assert(state.performers_track_boxes >= PERFORMERS_THEATER_ARRANGE_PERFORMANCE_THRESHOLDS[0], f"Performers track is not high enough to arrange performance 1")
     assert(state.theater_built, "Theater is not built yet")
-    assert(not state.theater_used, "Theater was already used this round")
-    assert(state.theater_slots[0] == False, f"Theater performance 1 is already used")
+    assert(state.theater_available, "Theater is not available this round")
+    assert(state.theater_boxes[0] == False, f"Theater performance 1 is already used")
 
-    state.theater_slots[0] = True
-    state.theater_used = True
+    state.theater_boxes[0] = True
+    state.theater_available = False
+    state.theater_boxes_rounds[0] = state.current_round
     _advance_traders_track(state)
 
 def _arrange_performance_2(state: GameState):
-    assert(state.theater_slots_unlocked[1] == True, "Theater slot has not been unlocked yet")
-    assert(state.performers_track_slots >= PERFORMERS_THEATER_ARRANGE_PERFORMANCE_THRESHOLDS[1], f"Performers track is not high enough to arrange performance 2")
+    assert(state.theater_boxes_unlocked[1] == True, "Theater box has not been unlocked yet")
+    assert(state.performers_track_boxes >= PERFORMERS_THEATER_ARRANGE_PERFORMANCE_THRESHOLDS[1], f"Performers track is not high enough to arrange performance 2")
     assert(state.theater_built, "Theater is not built yet")
-    assert(not state.theater_used, "Theater was already used this round")
-    assert(state.theater_slots[1] == False, f"Theater performance 2 is already used")
+    assert(state.theater_available, "Theater is not available this round")
+    assert(state.theater_boxes[1] == False, f"Theater performance 2 is already used")
 
-    state.theater_slots[1] = True
-    state.theater_used = True
+    state.theater_boxes[1] = True
+    state.theater_available = False
+    state.theater_boxes_rounds[1] = state.current_round
     state.num_soldiers += 1
     _add_dicipline_attribute_point(state)
 
 def _arrange_performance_3(state: GameState):
-    assert(state.theater_slots_unlocked[2] == True, "Theater slot has not been unlocked yet")
-    assert(state.performers_track_slots >= PERFORMERS_THEATER_ARRANGE_PERFORMANCE_THRESHOLDS[2], f"Performers track is not high enough to arrange performance 3")
+    assert(state.theater_boxes_unlocked[2] == True, "Theater box has not been unlocked yet")
+    assert(state.performers_track_boxes >= PERFORMERS_THEATER_ARRANGE_PERFORMANCE_THRESHOLDS[2], f"Performers track is not high enough to arrange performance 3")
     assert(state.theater_built, "Theater is not built yet")
-    assert(not state.theater_used, "Theater was already used this round")
-    assert(state.theater_slots[2] == False, f"Theater performance 3 is already used")
+    assert(state.theater_available, "Theater is not available this round")
+    assert(state.theater_boxes[2] == False, f"Theater performance 3 is already used")
 
-    state.theater_slots[2] = True
-    state.theater_used = True
+    state.theater_boxes[2] = True
+    state.theater_available = False
+    state.theater_boxes_rounds[2] = state.current_round
     state.num_servants += 1
     _add_piety_attribute_point(state)
 
 def _arrange_performance_4(state: GameState):
-    assert(state.theater_slots_unlocked[3] == True, "Theater slot has not been unlocked yet")
-    assert(state.performers_track_slots >= PERFORMERS_THEATER_ARRANGE_PERFORMANCE_THRESHOLDS[3], f"Performers track is not high enough to arrange performance 4")
+    assert(state.theater_boxes_unlocked[3] == True, "Theater box has not been unlocked yet")
+    assert(state.performers_track_boxes >= PERFORMERS_THEATER_ARRANGE_PERFORMANCE_THRESHOLDS[3], f"Performers track is not high enough to arrange performance 4")
     assert(state.theater_built, "Theater is not built yet")
-    assert(not state.theater_used, "Theater was already used this round")
-    assert(state.theater_slots[3] == False, f"Theater performance 4 is already used")
+    assert(state.theater_available, "Theater is not available this round")
+    assert(state.theater_boxes[3] == False, f"Theater performance 4 is already used")
 
-    state.theater_slots[3] = True
-    state.theater_used = True
+    state.theater_boxes[3] = True
+    state.theater_available = False
+    state.theater_boxes_rounds[3] = state.current_round
     _add_dicipline_attribute_point(state)
     _advance_apparitores_track(state)
 
 def _arrange_performance_5(state: GameState):
-    assert(state.theater_slots_unlocked[4] == True, "Theater slot has not been unlocked yet")
-    assert(state.performers_track_slots >= PERFORMERS_THEATER_ARRANGE_PERFORMANCE_THRESHOLDS[4], f"Performers track is not high enough to arrange performance 5")
+    assert(state.theater_boxes_unlocked[4] == True, "Theater box has not been unlocked yet")
+    assert(state.performers_track_boxes >= PERFORMERS_THEATER_ARRANGE_PERFORMANCE_THRESHOLDS[4], f"Performers track is not high enough to arrange performance 5")
     assert(state.theater_built, "Theater is not built yet")
-    assert(not state.theater_used, "Theater was already used this round")
-    assert(state.theater_slots[4] == False, f"Theater performance 5 is already used")
+    assert(state.theater_available, "Theater is not available this round")
+    assert(state.theater_boxes[4] == False, f"Theater performance 5 is already used")
 
-    state.theater_slots[4] = True
-    state.theater_used = True
+    state.theater_boxes[4] = True
+    state.theater_available = False
+    state.theater_boxes_rounds[4] = state.current_round
     _add_piety_attribute_point(state)
     _advance_priests_track(state)
 
 def _arrange_performance_6(state: GameState):
-    assert(state.theater_slots_unlocked[5] == True, "Theater slot has not been unlocked yet")
-    assert(state.performers_track_slots >= PERFORMERS_THEATER_ARRANGE_PERFORMANCE_THRESHOLDS[5], f"Performers track is not high enough to arrange performance 6")
+    assert(state.theater_boxes_unlocked[5] == True, "Theater box has not been unlocked yet")
+    assert(state.performers_track_boxes >= PERFORMERS_THEATER_ARRANGE_PERFORMANCE_THRESHOLDS[5], f"Performers track is not high enough to arrange performance 6")
     assert(state.theater_built, "Theater is not built yet")
-    assert(not state.theater_used, "Theater was already used this round")
-    assert(state.theater_slots[5] == False, f"Theater performance 6 is already used")
+    assert(state.theater_available, "Theater is not available this round")
+    assert(state.theater_boxes[5] == False, f"Theater performance 6 is already used")
 
-    state.theater_slots[5] = True
-    state.theater_used = True
+    state.theater_boxes[5] = True
+    state.theater_available = False
+    state.theater_boxes_rounds[5] = state.current_round
     _add_renown_attribute_point(state)
     _advance_patricians_track(state)
 
 def _build_colosseum(state: GameState):
     assert(state.colosseum_unlocked, "Colosseum action is not unlocked yet")
-    assert(state.performers_track_slots >= PERFORMERS_COLOSSEUM_THRESHOLD, "Performers track is not high enough to build the colosseum")
+    assert(state.performers_track_boxes >= PERFORMERS_COLOSSEUM_THRESHOLD, "Performers track is not high enough to build the colosseum")
     assert(state.colosseum_built == False, "Colosseum is already built")
     state.colosseum_built = True
     _add_renown_attribute_point(state)
@@ -2126,32 +2274,33 @@ def _build_colosseum(state: GameState):
 def _train_gladiator_1(state: GameState):
     assert(state.colosseum_built, "The colosseum has not been built yet but is required for this action")
     assert(state.is_gladiator_1_alive(), "Gladiator 1 is not alive and cannot be trained")
-    assert(state.performers_track_slots >= PERFORMERS_COLOSSEUM_TRAINING_THRESHOLDS[state.gladiator_1_strength], \
+    assert(state.performers_track_boxes >= PERFORMERS_COLOSSEUM_TRAINING_THRESHOLDS[state.gladiator_1_strength], \
            f"Performers track is not high enough to train gladiator 1")
-    assert(state.gladiator_slots_unlocked > state.gladiator_1_strength, \
-           f"Gladiator 1 strength is too high to train (current strength: {state.gladiator_1_strength}, gladiator slots unlocked: {state.gladiator_slots_unlocked})")
-    assert(state.gladiator_1_strength < NUM_GLADIATOR_SLOTS, "Gladiator 1 is already at maximum strength")
+    assert(state.gladiator_boxes_unlocked > state.gladiator_1_strength, \
+           f"Gladiator 1 strength is too high to train (current strength: {state.gladiator_1_strength}, gladiator boxes unlocked: {state.gladiator_boxes_unlocked})")
+    assert(state.gladiator_1_strength < NUM_GLADIATOR_BOXES, "Gladiator 1 is already at maximum strength")
     state.gladiator_1_strength += 1
 
 def _train_gladiator_2(state: GameState):
     assert(state.colosseum_built, "The colosseum has not been built yet but is required for this action")
     assert(state.is_gladiator_2_alive(), "Gladiator 2 is not alive and cannot be trained")
-    assert(state.performers_track_slots >= PERFORMERS_COLOSSEUM_TRAINING_THRESHOLDS[NUM_GLADIATOR_SLOTS + state.gladiator_2_strength], \
+    assert(state.performers_track_boxes >= PERFORMERS_COLOSSEUM_TRAINING_THRESHOLDS[NUM_GLADIATOR_BOXES + state.gladiator_2_strength], \
            f"Performers track is not high enough to train gladiator 2")
-    assert(state.gladiator_slots_unlocked > NUM_GLADIATOR_SLOTS + state.gladiator_2_strength, \
-           f"Gladiator 2 strength is too high to train (current strength: {state.gladiator_2_strength}, gladiator slots unlocked: {state.gladiator_slots_unlocked})")
-    assert(state.gladiator_2_strength < NUM_GLADIATOR_SLOTS, "Gladiator 2 is already at maximum strength")
+    assert(state.gladiator_boxes_unlocked > NUM_GLADIATOR_BOXES + state.gladiator_2_strength, \
+           f"Gladiator 2 strength is too high to train (current strength: {state.gladiator_2_strength}, gladiator boxes unlocked: {state.gladiator_boxes_unlocked})")
+    assert(state.gladiator_2_strength < NUM_GLADIATOR_BOXES, "Gladiator 2 is already at maximum strength")
     state.gladiator_2_strength += 1
 
 def _fight_with_gladiator_1(state: GameState):
     assert(state.colosseum_built, "The colosseum has not been built yet but is required for this action")
     assert(state.is_gladiator_1_alive(), "Gladiator 1 is not alive and cannot fight")
-    assert(state.gladiator_1_battled == False, "Gladiator 1 has already battled this turn")
+    assert(state.gladiator_1_can_battle == True, "Gladiator 1 has already battled this round")
     
     state.draw_fate_card()
     gladiator_damage = state.get_current_fate_card_gladiator_damage()
     state.gladiator_1_damage += gladiator_damage
-    state.gladiator_1_battled = True
+    state.gladiator_1_can_battle = False
+    state.gladiator_1_battle_rounds.append(state.current_round)
     if state.is_gladiator_1_alive():
         match state.gladiator_1_strength:
             case 2 | 3:
@@ -2171,12 +2320,13 @@ def _fight_with_gladiator_1(state: GameState):
 def _fight_with_gladiator_2(state: GameState):
     assert(state.colosseum_built, "The colosseum has not been built yet but is required for this action")
     assert(state.is_gladiator_2_alive(), "Gladiator 2 is not alive and cannot fight")
-    assert(state.gladiator_2_battled == False, "Gladiator 2 has already battled this turn")
+    assert(state.gladiator_2_can_battle == True, "Gladiator 2 has already battled this round")
     
     state.draw_fate_card()
     gladiator_damage = state.get_current_fate_card_gladiator_damage()
     state.gladiator_2_damage += gladiator_damage
-    state.gladiator_2_battled = True
+    state.gladiator_2_can_battle = False
+    state.gladiator_2_battle_rounds.append(state.current_round)
     if state.is_gladiator_2_alive():
         match state.gladiator_2_strength:
             case 2 | 3:
@@ -2195,26 +2345,26 @@ def _fight_with_gladiator_2(state: GameState):
 
 # Priests
 def _advance_priests_track(state: GameState):
-    assert(state.priests_track_slots < NUM_CITIZEN_TRACK_SLOTS, "All priests track slots are already filled")
-    state.priests_track_slots += 1
+    assert(state.priests_track_boxes < NUM_CITIZEN_TRACK_BOXES, "All priests track boxes are already filled")
+    state.priests_track_boxes += 1
 
-    state.small_garden_unlocked = state.small_garden_unlocked or (state.priests_track_slots >= PRIESTS_SMALL_GARDEN_THRESHOLD)
-    state.large_garden_unlocked = state.large_garden_unlocked or (state.priests_track_slots >= PRIESTS_LARGE_GARDEN_THRESHOLD)
-    state.small_temple_unlocked = state.small_temple_unlocked or (state.priests_track_slots >= PRIESTS_SMALL_TEMPLE_THRESHOLD)
-    state.small_temple_slots_unlocked = sum(1 for threshold in PRIESTS_SMALL_TEMPLE_FILL_THRESHOLDS if state.priests_track_slots >= threshold)
-    state.medium_temple_unlocked = state.medium_temple_unlocked or (state.priests_track_slots >= PRIESTS_MEDIUM_TEMPLE_THRESHOLD)
-    state.medium_temple_slots_unlocked = sum(1 for threshold in PRIESTS_MEDIUM_TEMPLE_FILL_THRESHOLDS if state.priests_track_slots >= threshold)
-    state.large_temple_unlocked = state.large_temple_unlocked or (state.priests_track_slots >= PRIESTS_LARGE_TEMPLE_THRESHOLD)
-    state.large_temple_slots_unlocked = sum(1 for threshold in PRIESTS_LARGE_TEMPLE_FILL_THRESHOLDS if state.priests_track_slots >= threshold)
+    state.small_garden_unlocked = state.small_garden_unlocked or (state.priests_track_boxes >= PRIESTS_SMALL_GARDEN_THRESHOLD)
+    state.large_garden_unlocked = state.large_garden_unlocked or (state.priests_track_boxes >= PRIESTS_LARGE_GARDEN_THRESHOLD)
+    state.small_temple_unlocked = state.small_temple_unlocked or (state.priests_track_boxes >= PRIESTS_SMALL_TEMPLE_THRESHOLD)
+    state.small_temple_boxes_unlocked = sum(1 for threshold in PRIESTS_SMALL_TEMPLE_FILL_THRESHOLDS if state.priests_track_boxes >= threshold)
+    state.medium_temple_unlocked = state.medium_temple_unlocked or (state.priests_track_boxes >= PRIESTS_MEDIUM_TEMPLE_THRESHOLD)
+    state.medium_temple_boxes_unlocked = sum(1 for threshold in PRIESTS_MEDIUM_TEMPLE_FILL_THRESHOLDS if state.priests_track_boxes >= threshold)
+    state.large_temple_unlocked = state.large_temple_unlocked or (state.priests_track_boxes >= PRIESTS_LARGE_TEMPLE_THRESHOLD)
+    state.large_temple_boxes_unlocked = sum(1 for threshold in PRIESTS_LARGE_TEMPLE_FILL_THRESHOLDS if state.priests_track_boxes >= threshold)
 
-    if state.priests_track_slots in PRIESTS_SERVANTS_THRESHOLDS:
+    if state.priests_track_boxes in PRIESTS_SERVANTS_THRESHOLDS:
         state.num_servants += 1
-    elif state.priests_track_slots in PRIESTS_PIETY_THRESHOLDS:
+    elif state.priests_track_boxes in PRIESTS_PIETY_THRESHOLDS:
         _add_piety_attribute_point(state)
 
 def _build_small_garden(state: GameState):
     assert(state.small_garden_unlocked, "Small garden action is not unlocked yet")
-    assert(state.priests_track_slots >= PRIESTS_SMALL_GARDEN_THRESHOLD, "Priests track is not high enough to build the small garden")
+    assert(state.priests_track_boxes >= PRIESTS_SMALL_GARDEN_THRESHOLD, "Priests track is not high enough to build the small garden")
     assert(state.small_garden_built == False, "Small garden is already built")
     state.small_garden_built = True
     _add_piety_attribute_point(state)
@@ -2224,7 +2374,7 @@ def _build_small_garden(state: GameState):
 
 def _build_large_garden(state: GameState):
     assert(state.large_garden_unlocked, "Large garden action is not unlocked yet")
-    assert(state.priests_track_slots >= PRIESTS_LARGE_GARDEN_THRESHOLD, "Priests track is not high enough to build the large garden")
+    assert(state.priests_track_boxes >= PRIESTS_LARGE_GARDEN_THRESHOLD, "Priests track is not high enough to build the large garden")
     assert(state.small_garden_built == True, "Small garden must be built before building the large garden")
     assert(state.large_garden_built == False, "Large garden is already built")
     state.large_garden_built = True
@@ -2237,201 +2387,202 @@ def _build_large_garden(state: GameState):
 
 def _build_small_temple(state: GameState):
     assert(state.small_temple_unlocked, "Small temple action is not unlocked yet")
-    assert(state.priests_track_slots >= PRIESTS_SMALL_TEMPLE_THRESHOLD, "Priests track is not high enough to build the small temple")
+    assert(state.priests_track_boxes >= PRIESTS_SMALL_TEMPLE_THRESHOLD, "Priests track is not high enough to build the small temple")
     assert(state.small_temple_built == False, "Small temple is already built")
     state.small_temple_built = True
     _add_piety_attribute_point(state)
 
 def _fill_small_temple(state: GameState):
     assert(state.small_temple_built, "Small temple must be built before filling it")
-    assert(state.priests_track_slots >= PRIESTS_SMALL_TEMPLE_FILL_THRESHOLDS[state.small_temple_slots], \
+    assert(state.priests_track_boxes >= PRIESTS_SMALL_TEMPLE_FILL_THRESHOLDS[state.small_temple_boxes], \
            "Priests track is not high enough to fill the small temple")
-    assert(state.is_small_temple_filled() == False, "All small temple slots are already filled")
-    state.small_temple_slots += 1
+    assert(state.is_small_temple_filled() == False, "All small temple boxes are already filled")
+    state.small_temple_boxes += 1
     _add_piety_attribute_point(state)
     if state.is_small_temple_filled():
-        state.general_favours += 1
+        state.num_general_favours += 1
 
 def _build_medium_temple(state: GameState):
     assert(state.medium_temple_unlocked, "Medium temple action is not unlocked yet")
-    assert(state.priests_track_slots >= PRIESTS_MEDIUM_TEMPLE_THRESHOLD, "Priests track is not high enough to build the medium temple")
+    assert(state.priests_track_boxes >= PRIESTS_MEDIUM_TEMPLE_THRESHOLD, "Priests track is not high enough to build the medium temple")
     assert(state.small_temple_built == True, "Small temple must be built before building the medium temple")
-    assert(state.is_small_temple_filled(), "Small temple must be filled before building the medium temple")
     assert(state.medium_temple_built == False, "Medium temple is already built")
     state.medium_temple_built = True
     _add_piety_attribute_point(state)
 
 def _fill_medium_temple(state: GameState):
     assert(state.medium_temple_built, "Medium temple must be built before filling it")
-    assert(state.priests_track_slots >= PRIESTS_MEDIUM_TEMPLE_FILL_THRESHOLDS[state.medium_temple_slots], \
+    assert(state.priests_track_boxes >= PRIESTS_MEDIUM_TEMPLE_FILL_THRESHOLDS[state.medium_temple_boxes], \
            "Priests track is not high enough to fill the medium temple")
-    assert(state.is_small_temple_filled(), "All small temple slots must be filled")
-    assert(state.is_medium_temple_filled() == False, "All medium temple slots are already filled")
-    state.medium_temple_slots += 1
+    assert(state.is_small_temple_filled(), "All small temple boxes must be filled")
+    assert(state.is_medium_temple_filled() == False, "All medium temple boxes are already filled")
+    state.medium_temple_boxes += 1
     _add_piety_attribute_point(state)
     if state.is_medium_temple_filled():
-        state.general_favours += 1
+        state.num_general_favours += 1
 
 def _build_large_temple(state: GameState):
     assert(state.large_temple_unlocked, "Large temple action is not unlocked yet")
-    assert(state.priests_track_slots >= PRIESTS_LARGE_TEMPLE_THRESHOLD, "Priests track is not high enough to build the large temple")
+    assert(state.priests_track_boxes >= PRIESTS_LARGE_TEMPLE_THRESHOLD, "Priests track is not high enough to build the large temple")
     assert(state.small_temple_built == True, "Small temple must be built before building the large temple")
-    assert(state.is_small_temple_filled(), "Small temple must be filled before building the large temple")
     assert(state.medium_temple_built == True, "Medium temple must be built before building the large temple")
-    assert(state.is_medium_temple_filled(), "Medium temple must be filled before building the large temple")
     assert(state.large_temple_built == False, "Large temple is already built")
     state.large_temple_built = True
     _add_piety_attribute_point(state)
 
 def _fill_large_temple(state: GameState):
     assert(state.large_temple_built, "Large temple must be built before filling it")
-    assert(state.priests_track_slots >= PRIESTS_LARGE_TEMPLE_FILL_THRESHOLDS[state.large_temple_slots], \
+    assert(state.priests_track_boxes >= PRIESTS_LARGE_TEMPLE_FILL_THRESHOLDS[state.large_temple_boxes], \
            "Priests track is not high enough to fill the large temple")
-    assert(state.is_large_temple_filled() == False, "All large temple slots are already filled")
-    state.large_temple_slots += 1
+    assert(state.is_large_temple_filled() == False, "All large temple boxes are already filled")
+    state.large_temple_boxes += 1
     _add_piety_attribute_point(state)
     if state.is_large_temple_filled():
-        state.general_favours += 1
+        state.num_general_favours += 1
 
 # Apparitores
 def _advance_apparitores_track(state: GameState):
-    assert(state.apparitores_track_slots < NUM_CITIZEN_TRACK_SLOTS, "All apparitores track slots are already filled")
-    state.apparitores_track_slots += 1
+    assert(state.apparitores_track_boxes < NUM_CITIZEN_TRACK_BOXES, "All apparitores track boxes are already filled")
+    state.apparitores_track_boxes += 1
 
-    state.baths_unlocked = state.baths_unlocked or (state.apparitores_track_slots >= APPARITORES_BATHS_THRESHOLD)
-    state.baths_slots_unlocked = sum(1 for threshold in APPARITORES_BATHS_BRIBE_THRESHOLDS if state.apparitores_track_slots >= threshold)
-    state.courthouse_unlocked = state.courthouse_unlocked or (state.apparitores_track_slots >= APPARITORES_COURTHOUSE_THRESHOLD)
-    state.courthouse_get_servant_unlocked = sum(1 for threshold in APPARITORES_COURTHOUSE_GET_SERVANT_THRESHOLDS if state.apparitores_track_slots >= threshold)
-    state.courthouse_builder_to_two_servants_unlocked = sum(1 for threshold in APPARITORES_COURTHOUSE_BUILDER_TO_TWO_SERVANTS_THRESHOLDS if state.apparitores_track_slots >= threshold)
-    state.courthouse_servant_to_builder_unlocked = sum(1 for threshold in APPARITORES_COURTHOUSE_SERVANT_TO_BUILDER_THRESHOLDS if state.apparitores_track_slots >= threshold)
+    state.baths_unlocked = state.baths_unlocked or (state.apparitores_track_boxes >= APPARITORES_BATHS_THRESHOLD)
+    state.baths_boxes_unlocked = sum(1 for threshold in APPARITORES_BATHS_BRIBE_THRESHOLDS if state.apparitores_track_boxes >= threshold)
+    state.courthouse_unlocked = state.courthouse_unlocked or (state.apparitores_track_boxes >= APPARITORES_COURTHOUSE_THRESHOLD)
+    state.courthouse_get_servant_unlocked = sum(1 for threshold in APPARITORES_COURTHOUSE_GET_SERVANT_THRESHOLDS if state.apparitores_track_boxes >= threshold)
+    state.courthouse_builder_to_two_servants_unlocked = sum(1 for threshold in APPARITORES_COURTHOUSE_BUILDER_TO_TWO_SERVANTS_THRESHOLDS if state.apparitores_track_boxes >= threshold)
+    state.courthouse_servant_to_builder_unlocked = sum(1 for threshold in APPARITORES_COURTHOUSE_SERVANT_TO_BUILDER_THRESHOLDS if state.apparitores_track_boxes >= threshold)
 
-    if state.apparitores_track_slots in APPARITORES_SOLDIERS_THRESHOLDS:
+    if state.apparitores_track_boxes in APPARITORES_SOLDIERS_THRESHOLDS:
         state.num_soldiers += 1
-    elif state.apparitores_track_slots in APPARITORES_BUILDERS_THRESHOLDS:
+    elif state.apparitores_track_boxes in APPARITORES_BUILDERS_THRESHOLDS:
         state.num_builders += 1
-    elif state.apparitores_track_slots in APPARITORES_DICIPLINE_THRESHOLDS:
+    elif state.apparitores_track_boxes in APPARITORES_DICIPLINE_THRESHOLDS:
         _add_dicipline_attribute_point(state)
 
 def _build_baths(state: GameState):
     assert(state.baths_unlocked, "Baths action is not unlocked yet")
-    assert(state.apparitores_track_slots >= APPARITORES_BATHS_THRESHOLD, "Apparitores track is not high enough to build the baths")
+    assert(state.apparitores_track_boxes >= APPARITORES_BATHS_THRESHOLD, "Apparitores track is not high enough to build the baths")
     assert(state.baths_built == False, "Baths is already built")
     state.baths_built = True
     _add_renown_attribute_point(state)
 
 def _pay_bribe(state: GameState):
     assert(state.baths_built, "Baths must be built before bribing it")
-    assert(state.baths_slots < NUM_BATHS_SLOTS, "All baths bribe slots are already filled")
-    assert(state.apparitores_track_slots >= APPARITORES_BATHS_BRIBE_THRESHOLDS[state.baths_slots], \
+    assert(state.baths_boxes < NUM_BATHS_BOXES, "All baths bribe boxes are already filled")
+    assert(state.apparitores_track_boxes >= APPARITORES_BATHS_BRIBE_THRESHOLDS[state.baths_boxes], \
            "Apparitores track is not high enough to bribe in the baths")
     assert(state.get_final_disdain() > 0, "Not enough disdain to pay a bribe in the baths")
-    state.baths_slots += 1
-    COSTS[actions.ACTION_PAY_BRIBE] = {"resources": APPARITORES_BATHS_BRIBE_COSTS[state.baths_slots]}
+    state.baths_boxes += 1
+    state.baths_rounds.append(state.current_round)
+    COSTS[actions.ACTION_PAY_BRIBE] = {"resources": APPARITORES_BATHS_BRIBE_COSTS[state.baths_boxes]}
 
 def _build_courthouse(state: GameState):
     assert(state.courthouse_unlocked, "Courthouse action is not unlocked yet")
-    assert(state.apparitores_track_slots >= APPARITORES_COURTHOUSE_THRESHOLD, "Apparitores track is not high enough to build the courthouse")
+    assert(state.apparitores_track_boxes >= APPARITORES_COURTHOUSE_THRESHOLD, "Apparitores track is not high enough to build the courthouse")
     assert(state.courthouse_built == False, "Courthouse is already built")
     state.courthouse_built = True
     _add_renown_attribute_point(state)
 
 def _courthouse_get_servant(state: GameState):
     assert(state.courthouse_built, "Courthouse must be built before getting a servant from it")
-    assert(not state.courthouse_get_servant_used, "Courthouse get servant action has already been used")
-    assert(state.courthouse_get_servant_slots < MAX_NUM_COURTHOUSE_ACTIONS, "All courthouse get servant slots are already used")
-    assert(state.courthouse_get_servant_slots < state.courthouse_get_servant_unlocked, "Not enough courthouse get servant slots are unlocked yet")
-    assert(state.apparitores_track_slots >= APPARITORES_COURTHOUSE_GET_SERVANT_THRESHOLDS[state.courthouse_get_servant_slots], \
+    assert(not state.courthouse_get_servant_available, "Courthouse get servant action is not available")
+    assert(state.courthouse_get_servant_boxes < MAX_NUM_COURTHOUSE_ACTIONS, "All courthouse get servant boxes are already used")
+    assert(state.courthouse_get_servant_boxes < state.courthouse_get_servant_unlocked, "Not enough courthouse get servant boxes are unlocked yet")
+    assert(state.apparitores_track_boxes >= APPARITORES_COURTHOUSE_GET_SERVANT_THRESHOLDS[state.courthouse_get_servant_boxes], \
            "Apparitores track is not high enough to get a servant from the courthouse")
-    state.courthouse_get_servant_used = True
+    state.courthouse_get_servant_available = False
     state.num_servants += 1
-    state.courthouse_get_servant_slots += 1
+    state.courthouse_get_servant_boxes += 1
+    state.courthouse_get_servant_rounds.append(state.current_round)
 
 def _courthouse_builder_to_two_servants(state: GameState):
     assert(state.courthouse_built, "Courthouse must be built before converting a builder to two servants")
-    assert(not state.courthouse_builder_to_two_servants_used, "Courthouse builder to two servants action has already been used")
-    assert(state.courthouse_builder_to_two_servants_slots < MAX_NUM_COURTHOUSE_ACTIONS, "All courthouse builder to two servants slots are already used") 
-    assert(state.courthouse_builder_to_two_servants_slots < state.courthouse_builder_to_two_servants_unlocked, \
-           "Not enough courthouse builder to two servants slots are unlocked yet")
-    assert(state.apparitores_track_slots >= APPARITORES_COURTHOUSE_BUILDER_TO_TWO_SERVANTS_THRESHOLDS[state.courthouse_builder_to_two_servants_slots], \
+    assert(not state.courthouse_builder_to_two_servants_available, "Courthouse builder to two servants action is not available")
+    assert(state.courthouse_builder_to_two_servants_boxes < MAX_NUM_COURTHOUSE_ACTIONS, "All courthouse builder to two servants boxes are already used") 
+    assert(state.courthouse_builder_to_two_servants_boxes < state.courthouse_builder_to_two_servants_unlocked, \
+           "Not enough courthouse builder to two servants boxes are unlocked yet")
+    assert(state.apparitores_track_boxes >= APPARITORES_COURTHOUSE_BUILDER_TO_TWO_SERVANTS_THRESHOLDS[state.courthouse_builder_to_two_servants_boxes], \
            "Apparitores track is not high enough to convert a builder to two servants in the courthouse")
-    state.courthouse_builder_to_two_servants_used = True
+    state.courthouse_builder_to_two_servants_available = False
     state.num_servants += 2
-    state.courthouse_builder_to_two_servants_slots += 1
+    state.courthouse_builder_to_two_servants_boxes += 1
+    state.courthouse_builder_to_two_servants_rounds.append(state.current_round)
 
 def _courthouse_servant_to_builder(state: GameState):
     assert(state.courthouse_built, "Courthouse must be built before converting a servant to a builder")
-    assert(not state.courthouse_servant_to_builder_used, "Courthouse servant to builder action has already been used")
-    assert(state.courthouse_servant_to_builder_slots < MAX_NUM_COURTHOUSE_ACTIONS, "All courthouse servant to builder slots are already used")
-    assert(state.courthouse_servant_to_builder_slots < state.courthouse_servant_to_builder_unlocked, \
-           "Not enough courthouse servant to builder slots are unlocked yet")
-    assert(state.apparitores_track_slots >= APPARITORES_COURTHOUSE_SERVANT_TO_BUILDER_THRESHOLDS[state.courthouse_servant_to_builder_slots], \
+    assert(not state.courthouse_servant_to_builder_available, "Courthouse servant to builder action is not available")
+    assert(state.courthouse_servant_to_builder_boxes < MAX_NUM_COURTHOUSE_ACTIONS, "All courthouse servant to builder boxes are already used")
+    assert(state.courthouse_servant_to_builder_boxes < state.courthouse_servant_to_builder_unlocked, \
+           "Not enough courthouse servant to builder boxes are unlocked yet")
+    assert(state.apparitores_track_boxes >= APPARITORES_COURTHOUSE_SERVANT_TO_BUILDER_THRESHOLDS[state.courthouse_servant_to_builder_boxes], \
            "Apparitores track is not high enough to convert a servant to a builder in the courthouse")
     assert(state.num_servants >= 1, "Not enough servants to convert to a builder in the courthouse")
-    state.courthouse_servant_to_builder_used = True
+    state.courthouse_servant_to_builder_available = False
     state.num_builders += 1
-    state.courthouse_servant_to_builder_slots += 1
+    state.courthouse_servant_to_builder_boxes += 1
+    state.courthouse_servant_to_builder_rounds.append(state.current_round)
 
 
 # Patricians
 def _advance_patricians_track(state: GameState):
-    assert(state.patricians_track_slots < NUM_CITIZEN_TRACK_SLOTS, "All patricians track slots are already filled")
-    state.patricians_track_slots += 1
+    assert(state.patricians_track_boxes < NUM_CITIZEN_TRACK_BOXES, "All patricians track boxes are already filled")
+    state.patricians_track_boxes += 1
 
-    state.diplomat_slots_unlocked = sum(1 for threshold in PATRICIANS_DIPLOMAT_THRESHOLDS if state.patricians_track_slots >= threshold)
-    state.scouts_slots_unlocked = sum(1 for threshold in PATRICIANS_SCOUTS_THRESHOLDS if state.patricians_track_slots >= threshold)
+    state.diplomat_boxes_unlocked = sum(1 for threshold in PATRICIANS_DIPLOMAT_THRESHOLDS if state.patricians_track_boxes >= threshold)
+    state.scouts_boxes_unlocked = sum(1 for threshold in PATRICIANS_SCOUTS_THRESHOLDS if state.patricians_track_boxes >= threshold)
 
-    if state.patricians_track_slots in PATRICIANS_SOLDIERS_THRESHOLDS:
+    if state.patricians_track_boxes in PATRICIANS_SOLDIERS_THRESHOLDS:
         state.num_soldiers += 1
-    elif state.patricians_track_slots in PATRICIANS_RESOURCES_THRESHOLDS:
+    elif state.patricians_track_boxes in PATRICIANS_RESOURCES_THRESHOLDS:
         state.num_resources += 1
-    elif state.patricians_track_slots in PATRICIANS_RENOWN_THRESHOLDS:
+    elif state.patricians_track_boxes in PATRICIANS_RENOWN_THRESHOLDS:
         _add_renown_attribute_point(state)
 
 def _send_left_diplomat(state: GameState):
-    assert(state.has_diplomat_slot_available(), "No diplomat slots available to send a diplomat")
-    assert(state.patricians_track_slots >= PATRICIANS_DIPLOMAT_THRESHOLDS[state.get_num_diplomat_slots_used()], "Patricians track is not high enough to send a diplomat to the left cohort")
-    assert(state.diplomat_left_used == False, "Left diplomat action has already been used")
-    state.diplomat_left_used = True
+    assert(state.has_diplomat_box_available(), "No diplomat boxes available to send a diplomat")
+    assert(state.patricians_track_boxes >= PATRICIANS_DIPLOMAT_THRESHOLDS[state.get_num_diplomat_boxes_available()], "Patricians track is not high enough to send a diplomat to the left cohort")
+    assert(state.diplomat_left_available == True, "Left diplomat action is not available")
+    state.diplomat_left_available = False
     _add_valour_attribute_point(state)
-    state.left_cohort_favours = 2
+    state.num_left_cohort_favours = 2
 
 def _send_center_diplomat(state: GameState):
-    assert(state.has_diplomat_slot_available(), "No diplomat slots available to send a diplomat")
-    assert(state.patricians_track_slots >= PATRICIANS_DIPLOMAT_THRESHOLDS[state.get_num_diplomat_slots_used()], "Patricians track is not high enough to send a diplomat to the left cohort")
-    assert(state.diplomat_center_used == False, "Center diplomat action has already been used")
-    state.diplomat_center_used = True
+    assert(state.has_diplomat_box_available(), "No diplomat boxes available to send a diplomat")
+    assert(state.patricians_track_boxes >= PATRICIANS_DIPLOMAT_THRESHOLDS[state.get_num_diplomat_boxes_available()], "Patricians track is not high enough to send a diplomat to the left cohort")
+    assert(state.diplomat_center_available == True, "Center diplomat action his not available")
+    state.diplomat_center_available = False
     _add_valour_attribute_point(state)
-    state.center_cohort_favours = 2
+    state.num_center_cohort_favours = 2
 
 def _send_right_diplomat(state: GameState):
-    assert(state.has_diplomat_slot_available(), "No diplomat slots available to send a diplomat")
-    assert(state.patricians_track_slots >= PATRICIANS_DIPLOMAT_THRESHOLDS[state.get_num_diplomat_slots_used()], "Patricians track is not high enough to send a diplomat to the left cohort")
-    assert(state.diplomat_right_used == False, "Right diplomat action has already been used")
-    state.diplomat_right_used = True
+    assert(state.has_diplomat_box_available(), "No diplomat boxes available to send a diplomat")
+    assert(state.patricians_track_boxes >= PATRICIANS_DIPLOMAT_THRESHOLDS[state.get_num_diplomat_boxes_available()], "Patricians track is not high enough to send a diplomat to the left cohort")
+    assert(state.diplomat_right_available == True, "Right diplomat action has is not available")
+    state.diplomat_right_available = False
     _add_valour_attribute_point(state)
-    state.right_cohort_favours = 2
+    state.num_right_cohort_favours = 2
 
 def _send_scout_prospect_card(state: GameState):
-    assert(state.patricians_track_slots >= PATRICIANS_SCOUTS_THRESHOLDS[state.scouts_slots], "Patricians track is not high enough to send a scout")
-    assert(state.scouts_slots < NUM_SCOUTS_SLOTS, "All scouts slots are already used")
-    assert(state.scouts_slots == state.scouts_slots_unlocked, "Next scout slot is not unlocked yet")
-    state.scouts_slots += 1
+    assert(state.patricians_track_boxes >= PATRICIANS_SCOUTS_THRESHOLDS[state.scouts_boxes], "Patricians track is not high enough to send a scout")
+    assert(state.scouts_boxes < NUM_SCOUTS_BOXES, "All scouts boxes are already used")
+    assert(state.scouts_boxes == state.scouts_boxes_unlocked, "Next scout box is not unlocked yet")
+    state.scouts_boxes += 1
     state.chosen_scout_pattern = state.get_current_prospect_card_scout_pattern_id()
     state.status = GameStatus.STATUS_SEND_SCOUT
 
 def _send_scout_neighbor_card_1(state: GameState):
-    assert(state.patricians_track_slots >= PATRICIANS_SCOUTS_THRESHOLDS[state.scouts_slots], "Patricians track is not high enough to send a scout")
-    assert(state.scouts_slots < NUM_SCOUTS_SLOTS, "All scouts slots are already used")
-    assert(state.scouts_slots == state.scouts_slots_unlocked, "Next scout slot is not unlocked yet")
-    state.scouts_slots += 1
+    assert(state.patricians_track_boxes >= PATRICIANS_SCOUTS_THRESHOLDS[state.scouts_boxes], "Patricians track is not high enough to send a scout")
+    assert(state.scouts_boxes < NUM_SCOUTS_BOXES, "All scouts boxes are already used")
+    assert(state.scouts_boxes == state.scouts_boxes_unlocked, "Next scout box is not unlocked yet")
+    state.scouts_boxes += 1
     state.chosen_scout_pattern = state.get_neighbor_prospect_card_1_scout_pattern_id()
     state.status = GameStatus.STATUS_SEND_SCOUT
 
 def _send_scout_neighbor_card_2(state: GameState):
-    assert(state.patricians_track_slots >= PATRICIANS_SCOUTS_THRESHOLDS[state.scouts_slots], "Patricians track is not high enough to send a scout")
-    assert(state.scouts_slots < NUM_SCOUTS_SLOTS, "All scouts slots are already used")
-    assert(state.scouts_slots == state.scouts_slots_unlocked, "Next scout slot is not unlocked yet")
-    state.scouts_slots += 1
+    assert(state.patricians_track_boxes >= PATRICIANS_SCOUTS_THRESHOLDS[state.scouts_boxes], "Patricians track is not high enough to send a scout")
+    assert(state.scouts_boxes < NUM_SCOUTS_BOXES, "All scouts boxes are already used")
+    assert(state.scouts_boxes == state.scouts_boxes_unlocked, "Next scout box is not unlocked yet")
+    state.scouts_boxes += 1
     state.chosen_scout_pattern = state.get_neighbor_prospect_card_2_scout_pattern_id()
     state.status = GameStatus.STATUS_SEND_SCOUT
 
@@ -2441,10 +2592,10 @@ def _place_scout_grid_pattern_1(state: GameState, row, col):
     # [X][X]
     assert(state.status == GameStatus.STATUS_SEND_SCOUT, "Not currently sending a scout")
     assert(state.chosen_scout_pattern == 1, "Chosen scout pattern does not match the pattern required for this action")
-    _fill_scout_slot(state, row, col)
-    _fill_scout_slot(state, row, col + 1)
-    _fill_scout_slot(state, row + 1, col)
-    _fill_scout_slot(state, row + 1, col + 1)
+    _fill_scout_box(state, row, col)
+    _fill_scout_box(state, row, col + 1)
+    _fill_scout_box(state, row + 1, col)
+    _fill_scout_box(state, row + 1, col + 1)
     state.status = GameStatus.STATUS_MAIN_LOOP
 
 def _place_scout_grid_pattern_2(state: GameState, row, col, rotated=False):
@@ -2453,15 +2604,15 @@ def _place_scout_grid_pattern_2(state: GameState, row, col, rotated=False):
     assert(state.status == GameStatus.STATUS_SEND_SCOUT, "Not currently sending a scout")
     assert(state.chosen_scout_pattern == 2, "Chosen scout pattern does not match the pattern required for this action")
     if rotated:
-        _fill_scout_slot(state, row, col)
-        _fill_scout_slot(state, row + 1, col)
-        _fill_scout_slot(state, row + 2, col)
-        _fill_scout_slot(state, row + 3, col)
+        _fill_scout_box(state, row, col)
+        _fill_scout_box(state, row + 1, col)
+        _fill_scout_box(state, row + 2, col)
+        _fill_scout_box(state, row + 3, col)
     else:
-        _fill_scout_slot(state, row, col)
-        _fill_scout_slot(state, row, col + 1)
-        _fill_scout_slot(state, row, col + 2)
-        _fill_scout_slot(state, row, col + 3)
+        _fill_scout_box(state, row, col)
+        _fill_scout_box(state, row, col + 1)
+        _fill_scout_box(state, row, col + 2)
+        _fill_scout_box(state, row, col + 3)
     state.status = GameStatus.STATUS_MAIN_LOOP
 
 def _place_scout_grid_pattern_3(state: GameState, row, col, rotated=False, flipped=False):
@@ -2472,26 +2623,26 @@ def _place_scout_grid_pattern_3(state: GameState, row, col, rotated=False, flipp
     assert(state.chosen_scout_pattern == 3, "Chosen scout pattern does not match the pattern required for this action")
     if rotated:
         if flipped:
-            _fill_scout_slot(state, row, col)
-            _fill_scout_slot(state, row + 1, col)
-            _fill_scout_slot(state, row + 1, col + 1)
-            _fill_scout_slot(state, row + 2, col + 1)
+            _fill_scout_box(state, row, col)
+            _fill_scout_box(state, row + 1, col)
+            _fill_scout_box(state, row + 1, col + 1)
+            _fill_scout_box(state, row + 2, col + 1)
         else:
-            _fill_scout_slot(state, row, col + 1)
-            _fill_scout_slot(state, row + 1, col)
-            _fill_scout_slot(state, row + 1, col + 1)
-            _fill_scout_slot(state, row + 2, col)
+            _fill_scout_box(state, row, col + 1)
+            _fill_scout_box(state, row + 1, col)
+            _fill_scout_box(state, row + 1, col + 1)
+            _fill_scout_box(state, row + 2, col)
     else:
         if flipped:
-            _fill_scout_slot(state, row, col + 1)
-            _fill_scout_slot(state, row, col + 2)
-            _fill_scout_slot(state, row + 1, col)
-            _fill_scout_slot(state, row + 1, col + 1)
+            _fill_scout_box(state, row, col + 1)
+            _fill_scout_box(state, row, col + 2)
+            _fill_scout_box(state, row + 1, col)
+            _fill_scout_box(state, row + 1, col + 1)
         else:
-            _fill_scout_slot(state, row, col)
-            _fill_scout_slot(state, row, col + 1)
-            _fill_scout_slot(state, row + 1, col + 1)
-            _fill_scout_slot(state, row + 1, col + 2)
+            _fill_scout_box(state, row, col)
+            _fill_scout_box(state, row, col + 1)
+            _fill_scout_box(state, row + 1, col + 1)
+            _fill_scout_box(state, row + 1, col + 2)
     state.status = GameStatus.STATUS_MAIN_LOOP
 
 def _place_scout_grid_pattern_4(state: GameState, row, col, rotated=False, flipped=False):
@@ -2502,26 +2653,26 @@ def _place_scout_grid_pattern_4(state: GameState, row, col, rotated=False, flipp
     assert(state.chosen_scout_pattern == 4, "Chosen scout pattern does not match the pattern required for this action")
     if rotated:
         if flipped:
-            _fill_scout_slot(state, row, col)
-            _fill_scout_slot(state, row + 1, col)
-            _fill_scout_slot(state, row + 1, col + 1)
-            _fill_scout_slot(state, row + 2, col)
+            _fill_scout_box(state, row, col)
+            _fill_scout_box(state, row + 1, col)
+            _fill_scout_box(state, row + 1, col + 1)
+            _fill_scout_box(state, row + 2, col)
         else:
-            _fill_scout_slot(state, row, col + 1)
-            _fill_scout_slot(state, row + 1, col)
-            _fill_scout_slot(state, row + 1, col + 1)
-            _fill_scout_slot(state, row + 2, col + 1)
+            _fill_scout_box(state, row, col + 1)
+            _fill_scout_box(state, row + 1, col)
+            _fill_scout_box(state, row + 1, col + 1)
+            _fill_scout_box(state, row + 2, col + 1)
     else:
         if flipped:
-            _fill_scout_slot(state, row, col + 1)
-            _fill_scout_slot(state, row + 1, col)
-            _fill_scout_slot(state, row + 1, col + 1)
-            _fill_scout_slot(state, row + 1, col + 2)
+            _fill_scout_box(state, row, col + 1)
+            _fill_scout_box(state, row + 1, col)
+            _fill_scout_box(state, row + 1, col + 1)
+            _fill_scout_box(state, row + 1, col + 2)
         else:
-            _fill_scout_slot(state, row, col)
-            _fill_scout_slot(state, row, col + 1)
-            _fill_scout_slot(state, row, col + 2)
-            _fill_scout_slot(state, row + 1, col + 1)
+            _fill_scout_box(state, row, col)
+            _fill_scout_box(state, row, col + 1)
+            _fill_scout_box(state, row, col + 2)
+            _fill_scout_box(state, row + 1, col + 1)
     state.status = GameStatus.STATUS_MAIN_LOOP
 
 def _place_scout_grid_pattern_5(state: GameState, row, col, rotated=False, rotated_reverse=False, flipped_horizontal=False, flipped_vertical=False):
@@ -2535,79 +2686,79 @@ def _place_scout_grid_pattern_5(state: GameState, row, col, rotated=False, rotat
     if rotated:
         if flipped_vertical:
             if flipped_horizontal:
-                _fill_scout_slot(state, row, col)
-                _fill_scout_slot(state, row + 1, col)
-                _fill_scout_slot(state, row + 2, col)
-                _fill_scout_slot(state, row + 2, col + 1)
+                _fill_scout_box(state, row, col)
+                _fill_scout_box(state, row + 1, col)
+                _fill_scout_box(state, row + 2, col)
+                _fill_scout_box(state, row + 2, col + 1)
             else:
-                _fill_scout_slot(state, row, col)
-                _fill_scout_slot(state, row , col + 1)
-                _fill_scout_slot(state, row + 1, col)
-                _fill_scout_slot(state, row + 2, col)
+                _fill_scout_box(state, row, col)
+                _fill_scout_box(state, row , col + 1)
+                _fill_scout_box(state, row + 1, col)
+                _fill_scout_box(state, row + 2, col)
         else:
             if flipped_horizontal:
-                _fill_scout_slot(state, row, col + 1)
-                _fill_scout_slot(state, row + 1, col + 1)
-                _fill_scout_slot(state, row + 2, col)
-                _fill_scout_slot(state, row + 2, col + 1)
+                _fill_scout_box(state, row, col + 1)
+                _fill_scout_box(state, row + 1, col + 1)
+                _fill_scout_box(state, row + 2, col)
+                _fill_scout_box(state, row + 2, col + 1)
             else:
-                _fill_scout_slot(state, row, col)
-                _fill_scout_slot(state, row, col + 1)
-                _fill_scout_slot(state, row + 1, col + 1)
-                _fill_scout_slot(state, row + 2, col + 1)
+                _fill_scout_box(state, row, col)
+                _fill_scout_box(state, row, col + 1)
+                _fill_scout_box(state, row + 1, col + 1)
+                _fill_scout_box(state, row + 2, col + 1)
     elif rotated_reverse:
         if flipped_vertical:
             if flipped_horizontal:
-                _fill_scout_slot(state, row, col)
-                _fill_scout_slot(state, row, col + 1)
-                _fill_scout_slot(state, row + 1, col + 1)
-                _fill_scout_slot(state, row + 2, col + 1)
+                _fill_scout_box(state, row, col)
+                _fill_scout_box(state, row, col + 1)
+                _fill_scout_box(state, row + 1, col + 1)
+                _fill_scout_box(state, row + 2, col + 1)
             else:
-                _fill_scout_slot(state, row, col + 1)
-                _fill_scout_slot(state, row + 1, col + 1)
-                _fill_scout_slot(state, row + 2, col)
-                _fill_scout_slot(state, row + 2, col + 1)
+                _fill_scout_box(state, row, col + 1)
+                _fill_scout_box(state, row + 1, col + 1)
+                _fill_scout_box(state, row + 2, col)
+                _fill_scout_box(state, row + 2, col + 1)
         else:
             if flipped_horizontal:
-                _fill_scout_slot(state, row, col)
-                _fill_scout_slot(state, row, col + 1)
-                _fill_scout_slot(state, row + 1, col)
-                _fill_scout_slot(state, row + 2, col)
+                _fill_scout_box(state, row, col)
+                _fill_scout_box(state, row, col + 1)
+                _fill_scout_box(state, row + 1, col)
+                _fill_scout_box(state, row + 2, col)
             else:
-                _fill_scout_slot(state, row, col)
-                _fill_scout_slot(state, row + 1, col)
-                _fill_scout_slot(state, row + 2, col)
-                _fill_scout_slot(state, row + 2, col + 1)
+                _fill_scout_box(state, row, col)
+                _fill_scout_box(state, row + 1, col)
+                _fill_scout_box(state, row + 2, col)
+                _fill_scout_box(state, row + 2, col + 1)
     else:
         if flipped_vertical:
             if flipped_horizontal:
-                _fill_scout_slot(state, row, col + 2)
-                _fill_scout_slot(state, row + 1, col)
-                _fill_scout_slot(state, row + 1, col + 1)
-                _fill_scout_slot(state, row + 1, col + 2)
+                _fill_scout_box(state, row, col + 2)
+                _fill_scout_box(state, row + 1, col)
+                _fill_scout_box(state, row + 1, col + 1)
+                _fill_scout_box(state, row + 1, col + 2)
             else:
-                _fill_scout_slot(state, row, col)
-                _fill_scout_slot(state, row, col + 1)
-                _fill_scout_slot(state, row, col + 2)
-                _fill_scout_slot(state, row + 1, col + 2)
+                _fill_scout_box(state, row, col)
+                _fill_scout_box(state, row, col + 1)
+                _fill_scout_box(state, row, col + 2)
+                _fill_scout_box(state, row + 1, col + 2)
         else:
             if flipped_horizontal:
-                _fill_scout_slot(state, row, col)
-                _fill_scout_slot(state, row + 1, col )
-                _fill_scout_slot(state, row + 1, col + 1)
-                _fill_scout_slot(state, row + 1, col + 2)
+                _fill_scout_box(state, row, col)
+                _fill_scout_box(state, row + 1, col )
+                _fill_scout_box(state, row + 1, col + 1)
+                _fill_scout_box(state, row + 1, col + 2)
             else:
-                _fill_scout_slot(state, row, col)
-                _fill_scout_slot(state, row, col + 1)
-                _fill_scout_slot(state, row, col + 2)
-                _fill_scout_slot(state, row + 1, col)
+                _fill_scout_box(state, row, col)
+                _fill_scout_box(state, row, col + 1)
+                _fill_scout_box(state, row, col + 2)
+                _fill_scout_box(state, row + 1, col)
     state.status = GameStatus.STATUS_MAIN_LOOP
 
-def _fill_scout_slot(state: GameState, row, col):
-    assert(0 <= row < NUM_SCOUTS_GRID_ROWS and 0 <= col < NUM_SCOUTS_GRID_COLS, "Scout grid slot position out of bounds")
-    assert(state.is_scout_grid_slot_available(row, col), f"Scout grid slot ({row}, {col}) is not available")
+def _fill_scout_box(state: GameState, row, col):
+    assert(0 <= row < NUM_SCOUTS_GRID_ROWS and 0 <= col < NUM_SCOUTS_GRID_COLS, "Scout grid box position out of bounds")
+    assert(state.is_scout_grid_box_available(row, col), f"Scout grid box ({row}, {col}) is not available")
 
-    state.fill_scout_grid_slot(row, col)
+    state.fill_scout_grid_box(row, col)
     if (row, col) in PATRICIANS_SCOUTS_GRID_RESOURCES:
         state.num_resources += 1
     elif (row, col) in PATRICIANS_SCOUTS_GRID_SERVANTS:
@@ -2617,24 +2768,24 @@ def _is_valid_scout_pattern_placement_1(state: GameState, row, col) -> bool:
     # Pattern:
     # [X][X]
     # [X][X]
-    return state.is_scout_grid_slot_available(row, col) and \
-        state.is_scout_grid_slot_available(row, col + 1) and \
-        state.is_scout_grid_slot_available(row + 1, col) and \
-        state.is_scout_grid_slot_available(row + 1, col + 1)
+    return state.is_scout_grid_box_available(row, col) and \
+        state.is_scout_grid_box_available(row, col + 1) and \
+        state.is_scout_grid_box_available(row + 1, col) and \
+        state.is_scout_grid_box_available(row + 1, col + 1)
 
 def _is_valid_scout_pattern_placement_2(state: GameState, row, col, rotated=False) -> bool:
     # Pattern:
     # [X][X][X][X]
     if rotated:
-        return state.is_scout_grid_slot_available(row, col) and \
-            state.is_scout_grid_slot_available(row + 1, col) and \
-            state.is_scout_grid_slot_available(row + 2, col) and \
-            state.is_scout_grid_slot_available(row + 3, col)
+        return state.is_scout_grid_box_available(row, col) and \
+            state.is_scout_grid_box_available(row + 1, col) and \
+            state.is_scout_grid_box_available(row + 2, col) and \
+            state.is_scout_grid_box_available(row + 3, col)
     else:
-        return state.is_scout_grid_slot_available(row, col) and \
-            state.is_scout_grid_slot_available(row, col + 1) and \
-            state.is_scout_grid_slot_available(row, col + 2) and \
-            state.is_scout_grid_slot_available(row, col + 3)
+        return state.is_scout_grid_box_available(row, col) and \
+            state.is_scout_grid_box_available(row, col + 1) and \
+            state.is_scout_grid_box_available(row, col + 2) and \
+            state.is_scout_grid_box_available(row, col + 3)
 
 def _is_valid_scout_pattern_placement_3(state: GameState, row, col, rotated=False, flipped=False) -> bool:
     # Pattern:
@@ -2642,26 +2793,26 @@ def _is_valid_scout_pattern_placement_3(state: GameState, row, col, rotated=Fals
     #    [X][X]
     if rotated:
         if flipped:
-            return state.is_scout_grid_slot_available(row, col) and \
-                state.is_scout_grid_slot_available(row + 1, col) and \
-                state.is_scout_grid_slot_available(row + 1, col + 1) and \
-                state.is_scout_grid_slot_available(row + 2, col + 1)
+            return state.is_scout_grid_box_available(row, col) and \
+                state.is_scout_grid_box_available(row + 1, col) and \
+                state.is_scout_grid_box_available(row + 1, col + 1) and \
+                state.is_scout_grid_box_available(row + 2, col + 1)
         else:
-            return state.is_scout_grid_slot_available(row, col + 1) and \
-                state.is_scout_grid_slot_available(row + 1, col) and \
-                state.is_scout_grid_slot_available(row + 1, col + 1) and \
-                state.is_scout_grid_slot_available(row + 2, col)
+            return state.is_scout_grid_box_available(row, col + 1) and \
+                state.is_scout_grid_box_available(row + 1, col) and \
+                state.is_scout_grid_box_available(row + 1, col + 1) and \
+                state.is_scout_grid_box_available(row + 2, col)
     else:
         if flipped:
-            return state.is_scout_grid_slot_available(row, col + 1) and \
-                state.is_scout_grid_slot_available(row, col + 2) and \
-                state.is_scout_grid_slot_available(row + 1, col) and \
-                state.is_scout_grid_slot_available(row + 1, col + 1)
+            return state.is_scout_grid_box_available(row, col + 1) and \
+                state.is_scout_grid_box_available(row, col + 2) and \
+                state.is_scout_grid_box_available(row + 1, col) and \
+                state.is_scout_grid_box_available(row + 1, col + 1)
         else:
-            return state.is_scout_grid_slot_available(row, col) and \
-                state.is_scout_grid_slot_available(row, col + 1) and \
-                state.is_scout_grid_slot_available(row + 1, col + 1) and \
-                state.is_scout_grid_slot_available(row + 1, col + 2)
+            return state.is_scout_grid_box_available(row, col) and \
+                state.is_scout_grid_box_available(row, col + 1) and \
+                state.is_scout_grid_box_available(row + 1, col + 1) and \
+                state.is_scout_grid_box_available(row + 1, col + 2)
 
 def _is_valid_scout_pattern_placement_4(state: GameState, row, col, rotated=False, flipped=False) -> bool:
     # Pattern:
@@ -2669,26 +2820,26 @@ def _is_valid_scout_pattern_placement_4(state: GameState, row, col, rotated=Fals
     #    [X]
     if rotated:
         if flipped:
-            return state.is_scout_grid_slot_available(row, col) and \
-                state.is_scout_grid_slot_available(row + 1, col) and \
-                state.is_scout_grid_slot_available(row + 1, col + 1) and \
-                state.is_scout_grid_slot_available(row + 2, col)
+            return state.is_scout_grid_box_available(row, col) and \
+                state.is_scout_grid_box_available(row + 1, col) and \
+                state.is_scout_grid_box_available(row + 1, col + 1) and \
+                state.is_scout_grid_box_available(row + 2, col)
         else:
-            return state.is_scout_grid_slot_available(row, col + 1) and \
-                state.is_scout_grid_slot_available(row + 1, col) and \
-                state.is_scout_grid_slot_available(row + 1, col + 1) and \
-                state.is_scout_grid_slot_available(row + 2, col + 1)
+            return state.is_scout_grid_box_available(row, col + 1) and \
+                state.is_scout_grid_box_available(row + 1, col) and \
+                state.is_scout_grid_box_available(row + 1, col + 1) and \
+                state.is_scout_grid_box_available(row + 2, col + 1)
     else:
         if flipped:
-            return state.is_scout_grid_slot_available(row, col + 1) and \
-                state.is_scout_grid_slot_available(row + 1, col) and \
-                state.is_scout_grid_slot_available(row + 1, col + 1) and \
-                state.is_scout_grid_slot_available(row + 1, col + 2)
+            return state.is_scout_grid_box_available(row, col + 1) and \
+                state.is_scout_grid_box_available(row + 1, col) and \
+                state.is_scout_grid_box_available(row + 1, col + 1) and \
+                state.is_scout_grid_box_available(row + 1, col + 2)
         else:
-            return state.is_scout_grid_slot_available(row, col) and \
-                state.is_scout_grid_slot_available(row, col + 1) and \
-                state.is_scout_grid_slot_available(row, col + 2) and \
-                state.is_scout_grid_slot_available(row + 1, col + 1)
+            return state.is_scout_grid_box_available(row, col) and \
+                state.is_scout_grid_box_available(row, col + 1) and \
+                state.is_scout_grid_box_available(row, col + 2) and \
+                state.is_scout_grid_box_available(row + 1, col + 1)
 
 def _is_valid_scout_pattern_placement_5(state: GameState, row, col, rotated=False, rotated_reverse=False, flipped_horizontal=False, flipped_vertical=False) -> bool:
     # Pattern:
@@ -2698,197 +2849,212 @@ def _is_valid_scout_pattern_placement_5(state: GameState, row, col, rotated=Fals
     if rotated:
         if flipped_vertical:
             if flipped_horizontal:
-                return state.is_scout_grid_slot_available(row, col) and \
-                    state.is_scout_grid_slot_available(row + 1, col) and \
-                    state.is_scout_grid_slot_available(row + 2, col) and \
-                    state.is_scout_grid_slot_available(row + 2, col + 1)
+                return state.is_scout_grid_box_available(row, col) and \
+                    state.is_scout_grid_box_available(row + 1, col) and \
+                    state.is_scout_grid_box_available(row + 2, col) and \
+                    state.is_scout_grid_box_available(row + 2, col + 1)
             else:
-                return state.is_scout_grid_slot_available(row, col) and \
-                    state.is_scout_grid_slot_available(row , col + 1) and \
-                    state.is_scout_grid_slot_available(row + 1, col) and \
-                    state.is_scout_grid_slot_available(row + 2, col)
+                return state.is_scout_grid_box_available(row, col) and \
+                    state.is_scout_grid_box_available(row , col + 1) and \
+                    state.is_scout_grid_box_available(row + 1, col) and \
+                    state.is_scout_grid_box_available(row + 2, col)
         else:
             if flipped_horizontal:
-                return state.is_scout_grid_slot_available(row, col + 1) and \
-                    state.is_scout_grid_slot_available(row + 1, col + 1) and \
-                    state.is_scout_grid_slot_available(row + 2, col) and \
-                    state.is_scout_grid_slot_available(row + 2, col + 1)
+                return state.is_scout_grid_box_available(row, col + 1) and \
+                    state.is_scout_grid_box_available(row + 1, col + 1) and \
+                    state.is_scout_grid_box_available(row + 2, col) and \
+                    state.is_scout_grid_box_available(row + 2, col + 1)
             else:
-                return state.is_scout_grid_slot_available(row, col) and \
-                    state.is_scout_grid_slot_available(row, col + 1) and \
-                    state.is_scout_grid_slot_available(row + 1, col + 1) and \
-                    state.is_scout_grid_slot_available(row + 2, col + 1)
+                return state.is_scout_grid_box_available(row, col) and \
+                    state.is_scout_grid_box_available(row, col + 1) and \
+                    state.is_scout_grid_box_available(row + 1, col + 1) and \
+                    state.is_scout_grid_box_available(row + 2, col + 1)
     elif rotated_reverse:
         if flipped_vertical:
             if flipped_horizontal:
-                return state.is_scout_grid_slot_available(row, col) and \
-                    state.is_scout_grid_slot_available(row, col + 1) and \
-                    state.is_scout_grid_slot_available(row + 1, col + 1) and \
-                    state.is_scout_grid_slot_available(row + 2, col + 1)
+                return state.is_scout_grid_box_available(row, col) and \
+                    state.is_scout_grid_box_available(row, col + 1) and \
+                    state.is_scout_grid_box_available(row + 1, col + 1) and \
+                    state.is_scout_grid_box_available(row + 2, col + 1)
             else:
-                return state.is_scout_grid_slot_available(row, col + 1) and \
-                    state.is_scout_grid_slot_available(row + 1, col + 1) and \
-                    state.is_scout_grid_slot_available(row + 2, col) and \
-                    state.is_scout_grid_slot_available(row + 2, col + 1)
+                return state.is_scout_grid_box_available(row, col + 1) and \
+                    state.is_scout_grid_box_available(row + 1, col + 1) and \
+                    state.is_scout_grid_box_available(row + 2, col) and \
+                    state.is_scout_grid_box_available(row + 2, col + 1)
         else:
             if flipped_horizontal:
-                return state.is_scout_grid_slot_available(row, col) and \
-                    state.is_scout_grid_slot_available(row, col + 1) and \
-                    state.is_scout_grid_slot_available(row + 1, col) and \
-                    state.is_scout_grid_slot_available(row + 2, col)
+                return state.is_scout_grid_box_available(row, col) and \
+                    state.is_scout_grid_box_available(row, col + 1) and \
+                    state.is_scout_grid_box_available(row + 1, col) and \
+                    state.is_scout_grid_box_available(row + 2, col)
             else:
-                return state.is_scout_grid_slot_available(row, col) and \
-                    state.is_scout_grid_slot_available(row + 1, col) and \
-                    state.is_scout_grid_slot_available(row + 2, col) and \
-                    state.is_scout_grid_slot_available(row + 2, col + 1)
+                return state.is_scout_grid_box_available(row, col) and \
+                    state.is_scout_grid_box_available(row + 1, col) and \
+                    state.is_scout_grid_box_available(row + 2, col) and \
+                    state.is_scout_grid_box_available(row + 2, col + 1)
     else:
         if flipped_vertical:
             if flipped_horizontal:
-                return state.is_scout_grid_slot_available(row, col + 2) and \
-                    state.is_scout_grid_slot_available(row + 1, col) and \
-                    state.is_scout_grid_slot_available(row + 1, col + 1) and \
-                    state.is_scout_grid_slot_available(row + 1, col + 2)
+                return state.is_scout_grid_box_available(row, col + 2) and \
+                    state.is_scout_grid_box_available(row + 1, col) and \
+                    state.is_scout_grid_box_available(row + 1, col + 1) and \
+                    state.is_scout_grid_box_available(row + 1, col + 2)
             else:
-                return state.is_scout_grid_slot_available(row, col) and \
-                    state.is_scout_grid_slot_available(row, col + 1) and \
-                    state.is_scout_grid_slot_available(row, col + 2) and \
-                    state.is_scout_grid_slot_available(row + 1, col + 2)
+                return state.is_scout_grid_box_available(row, col) and \
+                    state.is_scout_grid_box_available(row, col + 1) and \
+                    state.is_scout_grid_box_available(row, col + 2) and \
+                    state.is_scout_grid_box_available(row + 1, col + 2)
         else:
             if flipped_horizontal:
-                return state.is_scout_grid_slot_available(row, col) and \
-                    state.is_scout_grid_slot_available(row + 1, col ) and \
-                    state.is_scout_grid_slot_available(row + 1, col + 1) and \
-                    state.is_scout_grid_slot_available(row + 1, col + 2)
+                return state.is_scout_grid_box_available(row, col) and \
+                    state.is_scout_grid_box_available(row + 1, col ) and \
+                    state.is_scout_grid_box_available(row + 1, col + 1) and \
+                    state.is_scout_grid_box_available(row + 1, col + 2)
             else:
-                return state.is_scout_grid_slot_available(row, col) and \
-                    state.is_scout_grid_slot_available(row, col + 1) and \
-                    state.is_scout_grid_slot_available(row, col + 2) and \
-                    state.is_scout_grid_slot_available(row + 1, col)
+                return state.is_scout_grid_box_available(row, col) and \
+                    state.is_scout_grid_box_available(row, col + 1) and \
+                    state.is_scout_grid_box_available(row, col + 2) and \
+                    state.is_scout_grid_box_available(row + 1, col)
 
 # Follow-up actions
 def _enforce_left_cohort(state: GameState):
-    assert(state.left_cohort_slots < NUM_COHORTS_SLOTS, "All left cohort slots are already filled, cannot enforce the left cohort")
-    state.left_cohort_slots += 1
-    if state.left_cohort_slots in COHORT_DICIPLINE_THRESHOLDS:
+    assert(state.status == GameStatus.STATE_ADVANCE_COHORT, "Game does not have the correct status to perform this action")
+    assert(state.left_cohort_boxes < NUM_COHORTS_BOXES, "All left cohort boxes are already filled, cannot enforce the left cohort")
+    state.left_cohort_boxes += 1
+    if state.left_cohort_boxes in COHORT_DICIPLINE_THRESHOLDS:
         _add_dicipline_attribute_point(state)
-    elif state.left_cohort_slots in COHORT_VALOUR_THRESHOLDS:
+    elif state.left_cohort_boxes in COHORT_VALOUR_THRESHOLDS:
         _add_valour_attribute_point(state)
     state.status = GameStatus.STATUS_MAIN_LOOP
 
 def _enforce_center_cohort(state: GameState):
-    assert(state.center_cohort_slots < NUM_COHORTS_SLOTS, "All center cohort slots are already filled, cannot enforce the center cohort")
-    state.center_cohort_slots += 1
-    if state.center_cohort_slots in COHORT_DICIPLINE_THRESHOLDS:
+    assert(state.status == GameStatus.STATE_ADVANCE_COHORT, "Game does not have the correct status to perform this action")
+    assert(state.center_cohort_boxes < NUM_COHORTS_BOXES, "All center cohort boxes are already filled, cannot enforce the center cohort")
+    state.center_cohort_boxes += 1
+    if state.center_cohort_boxes in COHORT_DICIPLINE_THRESHOLDS:
         _add_dicipline_attribute_point(state)
-    elif state.center_cohort_slots in COHORT_VALOUR_THRESHOLDS:
+    elif state.center_cohort_boxes in COHORT_VALOUR_THRESHOLDS:
         _add_valour_attribute_point(state)
     state.status = GameStatus.STATUS_MAIN_LOOP
 
 def _enforce_right_cohort(state: GameState):
-    assert(state.right_cohort_slots < NUM_COHORTS_SLOTS, "All right cohort slots are already filled, cannot enforce the right cohort")
-    state.right_cohort_slots += 1
-    if state.right_cohort_slots in COHORT_DICIPLINE_THRESHOLDS:
+    assert(state.status == GameStatus.STATE_ADVANCE_COHORT, "Game does not have the correct status to perform this action")
+    assert(state.right_cohort_boxes < NUM_COHORTS_BOXES, "All right cohort boxes are already filled, cannot enforce the right cohort")
+    state.right_cohort_boxes += 1
+    if state.right_cohort_boxes in COHORT_DICIPLINE_THRESHOLDS:
         _add_dicipline_attribute_point(state)
-    elif state.right_cohort_slots in COHORT_VALOUR_THRESHOLDS:
+    elif state.right_cohort_boxes in COHORT_VALOUR_THRESHOLDS:
         _add_valour_attribute_point(state)
     state.status = GameStatus.STATUS_MAIN_LOOP
 
 def _use_left_favour(state: GameState):
-    assert(state.left_cohort_favours > 0, "No left cohort favours available to use")
+    assert(state.status == GameStatus.STATUS_USE_FAVOURS, "Game does not have the correct status to perform this action")
+    assert(state.num_left_cohort_favours > 0, "No left cohort favours available to use")
     assert(state.left_cohort_incoming_disdain >= 1, "Left cohort does not have enough incoming disdain to use a favour")
-    state.left_cohort_favours -= 1
+    state.num_left_cohort_favours -= 1
+    state.num_favours_used += 1
     state.left_cohort_incoming_disdain -= 1
 
 def _use_center_favour(state: GameState):
-    assert(state.center_cohort_favours > 0, "No center cohort favours available to use")
+    assert(state.status == GameStatus.STATUS_USE_FAVOURS, "Game does not have the correct status to perform this action")
+    assert(state.num_center_cohort_favours > 0, "No center cohort favours available to use")
     assert(state.center_cohort_incoming_disdain >= 1, "Center cohort does not have enough incoming disdain to use a favour")
-    state.center_cohort_favours -= 1
+    state.num_center_cohort_favours -= 1
+    state.num_favours_used += 1
     state.center_cohort_incoming_disdain -= 1
 
 def _use_right_favour(state: GameState):
-    assert(state.right_cohort_favours > 0, "No right cohort favours available to use")
+    assert(state.status == GameStatus.STATUS_USE_FAVOURS, "Game does not have the correct status to perform this action")
+    assert(state.num_right_cohort_favours > 0, "No right cohort favours available to use")
     assert(state.right_cohort_incoming_disdain >= 1, "Right cohort does not have enough incoming disdain to use a favour")
-    state.right_cohort_favours -= 1
+    state.num_right_cohort_favours -= 1
+    state.num_favours_used += 1
     state.right_cohort_incoming_disdain -= 1
 
 def _use_general_favour_left(state: GameState):
-    assert(state.general_favours > 0, "No general favours available to use")
+    assert(state.status == GameStatus.STATUS_USE_FAVOURS, "Game does not have the correct status to perform this action")
+    assert(state.num_general_favours > 0, "No general favours available to use")
     assert(state.left_cohort_incoming_disdain >= 1, "Left cohort does not have enough incoming disdain to use a favour")
-    state.general_favours -= 1
+    state.num_general_favours -= 1
+    state.num_favours_used += 1
     state.left_cohort_incoming_disdain -= 1
 
 def _use_general_favour_center(state: GameState):
-    assert(state.general_favours > 0, "No general favours available to use")
+    assert(state.status == GameStatus.STATUS_USE_FAVOURS, "Game does not have the correct status to perform this action")
+    assert(state.num_general_favours > 0, "No general favours available to use")
     assert(state.center_cohort_incoming_disdain >= 1, "Center cohort does not have enough incoming disdain to use a favour")
-    state.general_favours -= 1
+    state.num_general_favours -= 1
+    state.num_favours_used += 1
     state.center_cohort_incoming_disdain -= 1
 
 def _use_general_favour_right(state: GameState):
-    assert(state.general_favours > 0, "No general favours available to use")
+    assert(state.status == GameStatus.STATUS_USE_FAVOURS, "Game does not have the correct status to perform this action")
+    assert(state.num_general_favours > 0, "No general favours available to use")
     assert(state.right_cohort_incoming_disdain >= 1, "Right cohort does not have enough incoming disdain to use a favour")
-    state.general_favours -= 1
+    state.num_general_favours -= 1
+    state.num_favours_used += 1
     state.right_cohort_incoming_disdain -= 1
 
 
 # Add scoring points
 def _add_renown_attribute_point(state, num_points=1):
     for _ in range(num_points):
-        if state.renown_attribute_slots < ATTRIBUTE_POINTS_PER_TRACK:
-            state.renown_attribute_slots += 1
-            if state.renown_attribute_slots >= LANDMARK_ATTRIBUTE_POINTS_THRESHOLD:
+        if state.renown_attribute_boxes < ATTRIBUTE_POINTS_PER_TRACK:
+            state.renown_attribute_boxes += 1
+            if state.renown_attribute_boxes >= LANDMARK_ATTRIBUTE_POINTS_THRESHOLD:
                 state.landmark_1_unlocked = True
-            if state.renown_attribute_slots in ATTRIBUTE_CITIZEN_THRESHOLDS:
+            if state.renown_attribute_boxes in ATTRIBUTE_CITIZEN_THRESHOLDS:
                 state.num_civilians += 1
-            elif state.renown_attribute_slots == RENOWN_ADD_PIETY_THRESHOLD:
+            elif state.renown_attribute_boxes == RENOWN_ADD_PIETY_THRESHOLD:
                 _add_piety_attribute_point(state)
-            elif state.renown_attribute_slots == RENOWN_ADD_VALOUR_THRESHOLD:
+            elif state.renown_attribute_boxes == RENOWN_ADD_VALOUR_THRESHOLD:
                 _add_valour_attribute_point(state)
-            elif state.renown_attribute_slots == RENOWN_ADD_DICIPLINE_THRESHOLD:
+            elif state.renown_attribute_boxes == RENOWN_ADD_DICIPLINE_THRESHOLD:
                 _add_dicipline_attribute_point(state)
 
 def _add_piety_attribute_point(state, num_points=1):
     for _ in range(num_points):
-        if state.piety_attribute_slots < ATTRIBUTE_POINTS_PER_TRACK:
-            state.piety_attribute_slots += 1
-            if state.piety_attribute_slots >= LANDMARK_ATTRIBUTE_POINTS_THRESHOLD:
+        if state.piety_attribute_boxes < ATTRIBUTE_POINTS_PER_TRACK:
+            state.piety_attribute_boxes += 1
+            if state.piety_attribute_boxes >= LANDMARK_ATTRIBUTE_POINTS_THRESHOLD:
                 state.landmark_2_unlocked = True
-            if state.piety_attribute_slots in ATTRIBUTE_CITIZEN_THRESHOLDS:
+            if state.piety_attribute_boxes in ATTRIBUTE_CITIZEN_THRESHOLDS:
                 state.num_servants += 1
-            elif state.piety_attribute_slots == PIETY_ADD_RENOWN_THRESHOLD:
+            elif state.piety_attribute_boxes == PIETY_ADD_RENOWN_THRESHOLD:
                 _add_renown_attribute_point(state)
-            elif state.piety_attribute_slots == PIETY_ADD_VALOUR_THRESHOLD:
+            elif state.piety_attribute_boxes == PIETY_ADD_VALOUR_THRESHOLD:
                 _add_valour_attribute_point(state)
-            elif state.piety_attribute_slots == PIETY_ADD_DICIPLINE_THRESHOLD:
+            elif state.piety_attribute_boxes == PIETY_ADD_DICIPLINE_THRESHOLD:
                 _add_dicipline_attribute_point(state)
 
 def _add_valour_attribute_point(state, num_points=1):
     for _ in range(num_points):
-        if state.valour_attribute_slots < ATTRIBUTE_POINTS_PER_TRACK:
-            state.valour_attribute_slots += 1
-            if state.valour_attribute_slots >= LANDMARK_ATTRIBUTE_POINTS_THRESHOLD:
+        if state.valour_attribute_boxes < ATTRIBUTE_POINTS_PER_TRACK:
+            state.valour_attribute_boxes += 1
+            if state.valour_attribute_boxes >= LANDMARK_ATTRIBUTE_POINTS_THRESHOLD:
                 state.landmark_3_unlocked = True
-            if state.valour_attribute_slots in ATTRIBUTE_CITIZEN_THRESHOLDS:
+            if state.valour_attribute_boxes in ATTRIBUTE_CITIZEN_THRESHOLDS:
                 state.num_soldiers += 1
-            elif state.valour_attribute_slots == VALOUR_ADD_RENOWN_THRESHOLD:
+            elif state.valour_attribute_boxes == VALOUR_ADD_RENOWN_THRESHOLD:
                 _add_renown_attribute_point(state)
-            elif state.valour_attribute_slots == VALOUR_ADD_PIETY_THRESHOLD:
+            elif state.valour_attribute_boxes == VALOUR_ADD_PIETY_THRESHOLD:
                 _add_piety_attribute_point(state)
-            elif state.valour_attribute_slots == VALOUR_ADD_DICIPLINE_THRESHOLD:
+            elif state.valour_attribute_boxes == VALOUR_ADD_DICIPLINE_THRESHOLD:
                 _add_dicipline_attribute_point(state)
 
 def _add_dicipline_attribute_point(state, num_points=1):
     for _ in range(num_points):
-        if state.dicipline_attribute_slots < ATTRIBUTE_POINTS_PER_TRACK:
-            state.dicipline_attribute_slots += 1
-            if state.dicipline_attribute_slots >= LANDMARK_ATTRIBUTE_POINTS_THRESHOLD:
+        if state.dicipline_attribute_boxes < ATTRIBUTE_POINTS_PER_TRACK:
+            state.dicipline_attribute_boxes += 1
+            if state.dicipline_attribute_boxes >= LANDMARK_ATTRIBUTE_POINTS_THRESHOLD:
                 state.landmark_4_unlocked = True
-            if state.dicipline_attribute_slots in ATTRIBUTE_CITIZEN_THRESHOLDS:
+            if state.dicipline_attribute_boxes in ATTRIBUTE_CITIZEN_THRESHOLDS:
                 state.num_builders += 1
-            elif state.dicipline_attribute_slots == DICIPLINE_ADD_RENOWN_THRESHOLD:
+            elif state.dicipline_attribute_boxes == DICIPLINE_ADD_RENOWN_THRESHOLD:
                 _add_renown_attribute_point(state)
-            elif state.dicipline_attribute_slots == DICIPLINE_ADD_PIETY_THRESHOLD:
+            elif state.dicipline_attribute_boxes == DICIPLINE_ADD_PIETY_THRESHOLD:
                 _add_piety_attribute_point(state)
-            elif state.dicipline_attribute_slots == DICIPLINE_ADD_VALOUR_THRESHOLD:
+            elif state.dicipline_attribute_boxes == DICIPLINE_ADD_VALOUR_THRESHOLD:
                 _add_valour_attribute_point(state)
 
 def _update_path_cards_points(state: GameState):
@@ -2908,11 +3074,11 @@ def _update_path_cards_points(state: GameState):
             count += 1
     # Player Card 3: Defender
     if (state.player_card_is_path_card[2]):
-        if state.wall_slots >= WALL_AND_FORT_SECTION_THRESHOLDS[2]:
+        if state.wall_boxes >= WALL_AND_FORT_SECTION_THRESHOLDS[2]:
             count += 3
-        elif state.wall_slots >= WALL_AND_FORT_SECTION_THRESHOLDS[1]:
+        elif state.wall_boxes >= WALL_AND_FORT_SECTION_THRESHOLDS[1]:
             count += 2
-        elif state.wall_slots >= WALL_AND_FORT_SECTION_THRESHOLDS[0]:
+        elif state.wall_boxes >= WALL_AND_FORT_SECTION_THRESHOLDS[0]:
             count += 1
     # Player Card 4: Engineer
     if (state.player_card_is_path_card[3]):
@@ -2928,10 +3094,10 @@ def _update_path_cards_points(state: GameState):
         count += state.get_num_cohorts_completed()
     # Player Card 6: Resource production
     if (state.player_card_is_path_card[5]):
-        count += int(state.resource_production_slots / 3)
+        count += int(state.resource_production_boxes / 3)
     # Player Card 7: Merchant
     if (state.player_card_is_path_card[6]):
-        count += max(int(state.market_slots / 2 - 1), 0)
+        count += max(int(state.market_boxes / 2 - 1), 0)
     # Player Card 8: Planner
     if (state.player_card_is_path_card[7]):
         num_completed_citician_tracks = state.get_num_completed_citizen_tracks()
@@ -2947,18 +3113,18 @@ def _update_path_cards_points(state: GameState):
         count += num_filled_temples
     # Player Card 10: Ranger
     if (state.player_card_is_path_card[9]):
-        count += int((state.scouts_slots + 1) / 2)
+        count += int((state.scouts_boxes + 1) / 2)
     # Player Card 11: Trainer
     if (state.player_card_is_path_card[10]):
         total_gladiator_strength = state.get_total_gladiator_strength()
         count += int(total_gladiator_strength / 4)
     # Player Card 12: Vanguard
     if (state.player_card_is_path_card[11]):
-        if state.wall_guard_slots >= WALL_GUARD_SECTION_THRESHOLDS[2]:
+        if state.wall_guard_boxes >= WALL_GUARD_SECTION_THRESHOLDS[2]:
             count += 3
-        elif state.wall_guard_slots >= WALL_GUARD_SECTION_THRESHOLDS[1]:
+        elif state.wall_guard_boxes >= WALL_GUARD_SECTION_THRESHOLDS[1]:
             count += 2
-        elif state.wall_guard_slots >= WALL_GUARD_SECTION_THRESHOLDS[0]:
+        elif state.wall_guard_boxes >= WALL_GUARD_SECTION_THRESHOLDS[0]:
             count += 1
 
     state.path_card_points = count
@@ -2973,3 +3139,11 @@ def _update_disdain_malus_points(state: GameState):
         state.num_disdain_points = -3 * final_disdain + 6
     else:
         state.num_disdain_points = -22
+
+def get_final_score(state) -> int:
+    return state.self.renown_attribute_boxes \
+        + state.piety_attribute_boxes \
+        + state.valour_attribute_boxes \
+        + state.dicipline_attribute_boxes \
+        + state.path_card_points \
+        - state.num_disdain_points

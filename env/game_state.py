@@ -2,9 +2,9 @@ import random
 
 import numpy as np
 
-from .rules import *
-from . import cards
-from .enums import GameStatus
+from env.rules import *
+import env.cards as cards
+from env.enums import GameStatus
 
 # --- Game state constants ---#
 INVENTORY_NORM_FACTOR = 10
@@ -16,11 +16,15 @@ class GameState:
 
         # Internal state
         self.status = GameStatus.STATUS_INIT
+        self.action_counter = 0
 
         # Cards
         self.all_fate_cards = cards.load_fate_cards()
         self.fate_card_pile = None
         self.current_fate_card_id = None
+        self.left_fate_cards_remaining = NUM_LEFT_FATE_CARDS
+        self.center_fate_cards_remaining = NUM_CENTER_FATE_CARDS
+        self.right_fate_cards_remaining = NUM_RIGHT_FATE_CARDS
         self.reshuffle_fate_cards()
         self.all_player_cards = cards.load_player_cards()
         self.player_card_pile = None
@@ -30,15 +34,12 @@ class GameState:
         self.current_round = 0
         self.num_pict_attacks = 0
         self.left_cohort_incoming_disdain = 0
-        self.left_cohort_favours = 0
+        self.num_left_cohort_favours = 0
         self.center_cohort_incoming_disdain = 0
-        self.center_cohort_favours = 0
+        self.num_center_cohort_favours = 0
         self.right_cohort_incoming_disdain = 0
-        self.right_cohort_favours = 0
-        self.general_favours = 0
-        self.left_fate_cards_remaining = NUM_LEFT_FATE_CARDS
-        self.center_fate_cards_remaining = NUM_CENTER_FATE_CARDS
-        self.right_fate_cards_remaining = NUM_RIGHT_FATE_CARDS
+        self.num_right_cohort_favours = 0
+        self.num_general_favours = 0
         self.num_soldiers = 0
         self.num_builders = 0
         self.num_servants = 0
@@ -66,134 +67,146 @@ class GameState:
         # Initial shuffle
         self.shuffle_players_cards()
 
-        # Left board state
-        self.left_cohort_slots = 0
-        self.center_cohort_slots = 0
-        self.right_cohort_slots = 0
-        self.mining_and_foresting_slots = 0
-        self.wall_guard_slots = 0
-        self.cippi_slots = 0
-        self.cippi_slots_unlocked = 0
-        self.wall_slots = 0
-        self.fort_slots = 0
-        self.wall_and_fort_slots_unlocked = 0
-        self.small_granary_built = False
+        # Left sheet state
+        self.left_cohort_boxes = 0
+        self.center_cohort_boxes = 0
+        self.right_cohort_boxes = 0
+        self.mining_and_foresting_boxes = 0
+        self.wall_guard_boxes = 0
+        self.cippi_boxes = 0
+        self.cippi_boxes_unlocked = 0
+        self.wall_boxes = 0
+        self.fort_boxes = 0
+        self.wall_and_fort_boxes_unlocked = 0
         self.small_granary_unlocked = False
-        self.large_granary_built = False
+        self.small_granary_built = False
         self.large_granary_unlocked = False
-        self.resource_production_slots = 1
-        self.training_grounds_slots_available = NUM_TRAINING_GROUNDS_SLOTS
-        self.training_grounds_available = True
-        self.small_hotel_built = False
+        self.large_granary_built = False
+        self.resource_production_boxes = 1
+        self.training_grounds_boxes_available = NUM_TRAINING_GROUNDS_BOXES
+        self.training_grounds_available = False
+        self.training_grounds_rounds = []
         self.small_hotel_unlocked = False
-        self.large_hotel_built = False
+        self.small_hotel_built = False
         self.large_hotel_unlocked = False
-        self.small_workshop_built = False
+        self.large_hotel_built = False
         self.small_workshop_unlocked = False
-        self.large_workshop_built = False
+        self.small_workshop_built = False
         self.large_workshop_unlocked = False
-        self.small_road_built = False
+        self.large_workshop_built = False
         self.small_road_unlocked = False
-        self.large_road_built = False
+        self.small_road_built = False
         self.large_road_unlocked = False
-        self.forum_slots_available = NUM_FORUM_SLOTS
-        self.forum_used = True
-        self.landmark_1_built = False
+        self.large_road_built = False
+        self.forum_boxes_available = NUM_FORUM_BOXES
+        self.forum_available = False
+        self.forum_rounds = []
         self.landmark_1_unlocked = False
-        self.landmark_2_built = False
+        self.landmark_1_built = False
         self.landmark_2_unlocked = False
-        self.landmark_3_built = False
+        self.landmark_2_built = False
         self.landmark_3_unlocked = False
-        self.landmark_4_built = False
+        self.landmark_3_built = False
         self.landmark_4_unlocked = False
+        self.landmark_4_built = False
 
-        # Right board state
+        # Right sheet state
         # Traders
-        self.traders_track_slots = 0
-        self.small_precinct_built = False
+        self.traders_track_boxes = 0
         self.small_precinct_unlocked = False
-        self.medium_precinct_built = False
+        self.small_precinct_built = False
         self.medium_precinct_unlocked = False
-        self.large_precinct_built = False
+        self.medium_precinct_built = False
         self.large_precinct_unlocked = False
-        self.market_built = False
+        self.large_precinct_built = False
         self.market_unlocked = False
-        self.market_goods_ids = [None] * NUM_MARKET_SLOTS
-        self.market_slots = [False] * NUM_MARKET_SLOTS
-        self.market_slots_unlocked = 0
+        self.market_built = False
+        self.market_goods_ids = [None] * NUM_MARKET_BOXES
+        self.market_boxes = [False] * NUM_MARKET_BOXES
+        self.market_boxes_unlocked = 0
 
         # Performers
-        self.performers_track_slots = 0
-        self.theater_built = False
+        self.performers_track_boxes = 0
         self.theater_unlocked = False
-        self.theater_slots = [False] * NUM_THEATER_SLOTS
-        self.theater_slots_unlocked = 0
-        self.theater_used = False
-        self.colosseum_built = False
+        self.theater_built = False
+        self.theater_boxes = [False] * NUM_THEATER_BOXES
+        self.theater_boxes_unlocked = 0
+        self.theater_available = True
+        self.theater_boxes_rounds = [None] * NUM_THEATER_BOXES
         self.colosseum_unlocked = False
-        self.gladiator_slots_unlocked = 0
+        self.colosseum_built = False
+        self.gladiator_boxes_unlocked = 0
         self.gladiator_1_strength = 0
         self.gladiator_1_damage = 0
-        self.gladiator_1_battled = False
+        self.gladiator_1_can_battle = True
+        self.gladiator_1_battle_rounds = []
         self.gladiator_2_strength = 0
         self.gladiator_2_damage = 0
-        self.gladiator_2_battled = False
+        self.gladiator_2_can_battle = True
+        self.gladiator_2_battle_rounds = []
 
         # Priests
-        self.priests_track_slots = 0
+        self.priests_track_boxes = 0
+        self.large_garden_unlocked = False
         self.small_garden_built = False
         self.large_garden_unlocked = False
         self.large_garden_built = False
-        self.large_garden_unlocked = False
-        self.small_temple_built = False
         self.small_temple_unlocked = False
-        self.small_temple_slots = 0
-        self.medium_temple_built = False
+        self.small_temple_built = False
+        self.small_temple_boxes = 0
         self.medium_temple_unlocked = False
-        self.medium_temple_slots = 0
-        self.medium_temple_slots_unlocked = 0
-        self.large_temple_built = False
+        self.medium_temple_built = False
+        self.medium_temple_boxes = 0
+        self.medium_temple_boxes_unlocked = 0
         self.large_temple_unlocked = False
-        self.large_temple_slots = 0
-        self.large_temple_slots_unlocked = 0
+        self.large_temple_built = False
+        self.large_temple_boxes = 0
+        self.large_temple_boxes_unlocked = 0
 
         # Apparitores
-        self.apparitores_track_slots = 0
-        self.baths_built = False
+        self.apparitores_track_boxes = 0
         self.baths_unlocked = False
-        self.baths_slots = 0
-        self.baths_slots_unlocked = 0
-        self.baths_slots_available = MAX_NUM_BRIBES_PER_ROUND
-        self.courthouse_built = False
+        self.baths_built = False
+        self.baths_boxes = 0
+        self.baths_boxes_unlocked = 0
+        self.baths_boxes_available = MAX_NUM_BRIBES_PER_ROUND
+        self.baths_rounds = []
         self.courthouse_unlocked = False
-        self.courthouse_get_servant_slots = 0
+        self.courthouse_built = False
+        self.courthouse_get_servant_boxes = 0
         self.courthouse_get_servant_unlocked = 0
-        self.courthouse_get_servant_used = False
-        self.courthouse_builder_to_two_servants_slots = 0
+        self.courthouse_get_servant_available = True
+        self.courthouse_get_servant_rounds = []
+        self.courthouse_builder_to_two_servants_boxes = 0
         self.courthouse_builder_to_two_servants_unlocked = 0
-        self.courthouse_builder_to_two_servants_used = False
-        self.courthouse_servant_to_builder_slots = 0
+        self.courthouse_builder_to_two_servants_available = True
+        self.courthouse_builder_to_two_servants_rounds = []
+        self.courthouse_servant_to_builder_boxes = 0
         self.courthouse_servant_to_builder_unlocked = 0
-        self.courthouse_servant_to_builder_used = False
+        self.courthouse_servant_to_builder_available = True
+        self.courthouse_servant_to_builder_rounds = []
 
         # Patricians
-        self.patricians_track_slots = 0
-        self.diplomat_slots_unlocked = 0
-        self.diplomat_left_used = False
-        self.diplomat_center_used = False
-        self.diplomat_right_used = False
-        self.scouts_slots = 0
-        self.scouts_slots_unlocked = 0
+        self.patricians_track_boxes = 0
+        self.diplomat_boxes_unlocked = 0
+        self.diplomat_left_available = True
+        self.diplomat_center_available = True
+        self.diplomat_right_available = True
+        self.scouts_boxes = 0
+        self.scouts_boxes_unlocked = 0
         self.scouts_grid = [False] * (NUM_SCOUTS_GRID_ROWS * NUM_SCOUTS_GRID_COLS)
         self.chosen_scout_pattern = None
 
         # Scoring
-        self.renown_attribute_slots = 0
-        self.piety_attribute_slots = 0
-        self.valour_attribute_slots = 0
-        self.dicipline_attribute_slots = 0
+        self.renown_attribute_boxes = 0
+        self.piety_attribute_boxes = 0
+        self.valour_attribute_boxes = 0
+        self.dicipline_attribute_boxes = 0
         self.path_card_points = 0
         self.num_disdain_points = 0
+
+        # Setup for first round
+        start_new_round(self)
 
     def to_observation(self):
         ### Convert the game state to a normalized observation vector ###
@@ -202,12 +215,12 @@ class GameState:
             self.current_round / MAX_ROUNDS,
             self.num_pict_attacks / MAX_PICT_ATTACKS,
             self.left_cohort_incoming_disdain / MAX_PICT_ATTACKS,
-            self.left_cohort_favours / MAX_FAVOURS,
+            self.num_left_cohort_favours / MAX_FAVOURS,
             self.center_cohort_incoming_disdain / MAX_PICT_ATTACKS,
-            self.center_cohort_favours / MAX_FAVOURS,
+            self.num_center_cohort_favours / MAX_FAVOURS,
             self.right_cohort_incoming_disdain / MAX_PICT_ATTACKS,
-            self.right_cohort_favours / MAX_FAVOURS,
-            self.general_favours / MAX_FAVOURS,
+            self.num_right_cohort_favours / MAX_FAVOURS,
+            self.num_general_favours / MAX_FAVOURS,
             self.left_fate_cards_remaining / NUM_LEFT_FATE_CARDS,
             self.center_fate_cards_remaining / NUM_CENTER_FATE_CARDS,
             self.right_fate_cards_remaining / NUM_RIGHT_FATE_CARDS,
@@ -216,7 +229,7 @@ class GameState:
             self.num_servants / INVENTORY_NORM_FACTOR,
             self.num_civilians / INVENTORY_NORM_FACTOR,
             self.num_resources / INVENTORY_NORM_FACTOR,
-            self.num_disdain / NUM_DISDAIN_SLOTS,
+            self.num_disdain / NUM_DISDAIN_BOXES,
             self.num_favours_used / MAX_FAVOURS,
             self.infrastructure_level / MAX_INFRASTRUCTURE_LEVEL,
 
@@ -234,138 +247,140 @@ class GameState:
             *self.neighbor_card_revealed,
             *[self.neighbor_prospect_card_1_id == i or self.neighbor_prospect_card_2_id == i for i in range(NUM_PLAYER_CARDS)],
 
-            # Left board state
-            self.left_cohort_slots / NUM_COHORTS_SLOTS,
-            self.center_cohort_slots / NUM_COHORTS_SLOTS,
-            self.right_cohort_slots / NUM_COHORTS_SLOTS,
-            self.mining_and_foresting_slots / NUM_MINING_AND_FORESTING_SLOTS,
-            self.wall_guard_slots / NUM_WALL_GUARD_SLOTS,
-            self.cippi_slots / NUM_CIPPI_SLOTS,
-            self.cippi_slots_unlocked / NUM_CIPPI_SLOTS,
-            self.wall_slots / NUM_WALL_AND_FORT_SLOTS,
-            self.fort_slots / NUM_WALL_AND_FORT_SLOTS,
-            self.wall_and_fort_slots_unlocked / NUM_WALL_AND_FORT_SLOTS,
-            self.small_granary_built,
+            # Left sheet state
+            self.left_cohort_boxes / NUM_COHORTS_BOXES,
+            self.center_cohort_boxes / NUM_COHORTS_BOXES,
+            self.right_cohort_boxes / NUM_COHORTS_BOXES,
+            self.mining_and_foresting_boxes / NUM_MINING_AND_FORESTING_BOXES,
+            self.wall_guard_boxes / NUM_WALL_GUARD_BOXES,
+            self.cippi_boxes / NUM_CIPPI_BOXES,
+            self.cippi_boxes_unlocked / NUM_CIPPI_BOXES,
+            self.wall_boxes / NUM_WALL_AND_FORT_BOXES,
+            self.fort_boxes / NUM_WALL_AND_FORT_BOXES,
+            self.wall_and_fort_boxes_unlocked / NUM_WALL_AND_FORT_BOXES,
             self.small_granary_unlocked,
-            self.large_granary_built,
+            self.small_granary_built,
             self.large_granary_unlocked,
-            self.resource_production_slots / RESOURCE_PRODUCTION_SLOTS,
-            self.training_grounds_slots_available / NUM_TRAINING_GROUNDS_SLOTS,
+            self.large_granary_built,
+            self.resource_production_boxes / RESOURCE_PRODUCTION_BOXES,
+            self.training_grounds_boxes_available / NUM_TRAINING_GROUNDS_BOXES,
             self.training_grounds_available,
-            self.small_hotel_built,
             self.small_hotel_unlocked,
-            self.large_hotel_built,
+            self.small_hotel_built,
             self.large_hotel_unlocked,
-            self.small_workshop_built,
+            self.large_hotel_built,
             self.small_workshop_unlocked,
-            self.large_workshop_built,
+            self.small_workshop_built,
             self.large_workshop_unlocked,
-            self.small_road_built,
+            self.large_workshop_built,
             self.small_road_unlocked,
-            self.large_road_built,
+            self.small_road_built,
             self.large_road_unlocked,
-            self.forum_slots_available / NUM_FORUM_SLOTS,
-            self.forum_used,
-            self.landmark_1_built,
+            self.large_road_built,
+            self.forum_boxes_available / NUM_FORUM_BOXES,
+            self.forum_available,
             self.landmark_1_unlocked,
-            self.landmark_2_built,
+            self.landmark_1_built,
             self.landmark_2_unlocked,
-            self.landmark_3_built,
+            self.landmark_2_built,
             self.landmark_3_unlocked,
-            self.landmark_4_built,
+            self.landmark_3_built,
             self.landmark_4_unlocked,
+            self.landmark_4_built,
 
-            # Right board state
+            # Right sheet state
             # Traders
-            self.traders_track_slots / NUM_CITIZEN_TRACK_SLOTS,
-            self.small_precinct_built,
+            self.traders_track_boxes / NUM_CITIZEN_TRACK_BOXES,
             self.small_precinct_unlocked,
-            self.medium_precinct_built,
+            self.small_precinct_built,
             self.medium_precinct_unlocked,
-            self.large_precinct_built,
+            self.medium_precinct_built,
             self.large_precinct_unlocked,
-            self.market_built,
+            self.large_precinct_built,
             self.market_unlocked,
+            self.market_built,
             *[i+1 in self.market_goods_ids for i in range(6)],
-            *self.market_slots,
-            self.market_slots_unlocked / NUM_MARKET_SLOTS,
+            *self.market_boxes,
+            self.market_boxes_unlocked / NUM_MARKET_BOXES,
 
             # Performers
-            self.performers_track_slots / NUM_CITIZEN_TRACK_SLOTS,
-            self.theater_built,
+            self.performers_track_boxes / NUM_CITIZEN_TRACK_BOXES,
             self.theater_unlocked,
-            *self.theater_slots,
-            self.theater_slots_unlocked / NUM_THEATER_SLOTS,
-            self.colosseum_built,
+            self.theater_built,
+            *self.theater_boxes,
+            self.theater_boxes_unlocked / NUM_THEATER_BOXES,
+            self.theater_available,
             self.colosseum_unlocked,
-            self.gladiator_slots_unlocked / NUM_GLADIATOR_SLOTS,
-            self.gladiator_1_strength / NUM_GLADIATOR_SLOTS,
-            self.gladiator_1_damage / NUM_GLADIATOR_SLOTS,
-            self.gladiator_1_battled,
-            self.gladiator_2_strength / NUM_GLADIATOR_SLOTS,
-            self.gladiator_2_damage / NUM_GLADIATOR_SLOTS,
-            self.gladiator_2_battled,
+            self.colosseum_built,
+            self.gladiator_boxes_unlocked / NUM_GLADIATOR_BOXES,
+            self.gladiator_1_strength / NUM_GLADIATOR_BOXES,
+            self.gladiator_1_damage / NUM_GLADIATOR_BOXES,
+            self.gladiator_1_can_battle,
+            self.gladiator_2_strength / NUM_GLADIATOR_BOXES,
+            self.gladiator_2_damage / NUM_GLADIATOR_BOXES,
+            self.gladiator_2_can_battle,
 
             # Priests
-            self.priests_track_slots / NUM_CITIZEN_TRACK_SLOTS,
+            self.priests_track_boxes / NUM_CITIZEN_TRACK_BOXES,
+            self.large_garden_unlocked,
             self.small_garden_built,
             self.large_garden_unlocked,
             self.large_garden_built,
-            self.large_garden_unlocked,
-            self.small_temple_built,
             self.small_temple_unlocked,
-            self.small_temple_slots / NUM_SMALL_TEMPLE_SLOTS,
-            self.medium_temple_built,
+            self.small_temple_built,
+            self.small_temple_boxes / NUM_SMALL_TEMPLE_BOXES,
             self.medium_temple_unlocked,
-            self.medium_temple_slots / NUM_MEDIUM_TEMPLE_SLOTS,
-            self.medium_temple_slots_unlocked / NUM_MEDIUM_TEMPLE_SLOTS,
-            self.large_temple_built,
+            self.medium_temple_built,
+            self.medium_temple_boxes / NUM_MEDIUM_TEMPLE_BOXES,
+            self.medium_temple_boxes_unlocked / NUM_MEDIUM_TEMPLE_BOXES,
             self.large_temple_unlocked,
-            self.large_temple_slots / NUM_LARGE_TEMPLE_SLOTS,
-            self.large_temple_slots_unlocked / NUM_LARGE_TEMPLE_SLOTS,
+            self.large_temple_built,
+            self.large_temple_boxes / NUM_LARGE_TEMPLE_BOXES,
+            self.large_temple_boxes_unlocked / NUM_LARGE_TEMPLE_BOXES,
 
             # Apparitores
-            self.apparitores_track_slots / NUM_CITIZEN_TRACK_SLOTS,
-            self.baths_built,
+            self.apparitores_track_boxes / NUM_CITIZEN_TRACK_BOXES,
             self.baths_unlocked,
-            self.baths_slots / NUM_BATHS_SLOTS,
-            self.baths_slots_unlocked / NUM_BATHS_SLOTS,
-            self.baths_slots_available / MAX_NUM_BRIBES_PER_ROUND,
-            self.courthouse_built,
+            self.baths_built,
+            self.baths_boxes / NUM_BATHS_BOXES,
+            self.baths_boxes_unlocked / NUM_BATHS_BOXES,
+            self.baths_boxes_available / MAX_NUM_BRIBES_PER_ROUND,
             self.courthouse_unlocked,
-            self.courthouse_get_servant_slots / MAX_NUM_COURTHOUSE_ACTIONS,
+            self.courthouse_built,
+            self.courthouse_get_servant_boxes / MAX_NUM_COURTHOUSE_ACTIONS,
             self.courthouse_get_servant_unlocked / MAX_NUM_COURTHOUSE_ACTIONS,
-            self.courthouse_get_servant_used,
-            self.courthouse_builder_to_two_servants_slots / MAX_NUM_COURTHOUSE_ACTIONS,
+            self.courthouse_get_servant_available,
+            self.courthouse_builder_to_two_servants_boxes / MAX_NUM_COURTHOUSE_ACTIONS,
             self.courthouse_builder_to_two_servants_unlocked / MAX_NUM_COURTHOUSE_ACTIONS,
-            self.courthouse_builder_to_two_servants_used,
-            self.courthouse_servant_to_builder_slots / MAX_NUM_COURTHOUSE_ACTIONS,
+            self.courthouse_builder_to_two_servants_available,
+            self.courthouse_servant_to_builder_boxes / MAX_NUM_COURTHOUSE_ACTIONS,
             self.courthouse_servant_to_builder_unlocked / MAX_NUM_COURTHOUSE_ACTIONS,
-            self.courthouse_servant_to_builder_used,
+            self.courthouse_servant_to_builder_available,
             
             # Patricians
-            self.patricians_track_slots / NUM_CITIZEN_TRACK_SLOTS,
-            self.diplomat_slots_unlocked / NUM_DIPLOTMAT_SLOTS,
-            self.diplomat_left_used,
-            self.diplomat_center_used,
-            self.diplomat_right_used,
-            self.scouts_slots / NUM_SCOUTS_SLOTS,
-            self.scouts_slots_unlocked / NUM_SCOUTS_SLOTS,
+            self.patricians_track_boxes / NUM_CITIZEN_TRACK_BOXES,
+            self.diplomat_boxes_unlocked / NUM_DIPLOTMAT_BOXES,
+            self.diplomat_left_available,
+            self.diplomat_center_available,
+            self.diplomat_right_available,
+            self.scouts_boxes / NUM_SCOUTS_BOXES,
+            self.scouts_boxes_unlocked / NUM_SCOUTS_BOXES,
             *self.scouts_grid,
 
             # Scoring            
-            self.renown_attribute_slots / ATTRIBUTE_POINTS_PER_TRACK,
-            self.piety_attribute_slots / ATTRIBUTE_POINTS_PER_TRACK,
-            self.valour_attribute_slots / ATTRIBUTE_POINTS_PER_TRACK,
-            self.dicipline_attribute_slots / ATTRIBUTE_POINTS_PER_TRACK,
+            self.renown_attribute_boxes / ATTRIBUTE_POINTS_PER_TRACK,
+            self.piety_attribute_boxes / ATTRIBUTE_POINTS_PER_TRACK,
+            self.valour_attribute_boxes / ATTRIBUTE_POINTS_PER_TRACK,
+            self.dicipline_attribute_boxes / ATTRIBUTE_POINTS_PER_TRACK,
+            self.path_card_points / ATTRIBUTE_POINTS_PER_TRACK,
             self.num_disdain_points / ATTRIBUTE_POINTS_PER_TRACK,
         ], dtype=np.float32)
 
     # Actions
     def add_good_to_market(self, goods_id, index):
-        if 0 <= index < NUM_MARKET_SLOTS:
+        if 0 <= index < NUM_MARKET_BOXES:
             self.market_goods_ids[index] = goods_id
-            self.market_slots[index] = True
+            self.market_boxes[index] = True
 
     def draw_fate_card(self):
         if len(self.fate_card_pile) == 0:
@@ -400,6 +415,9 @@ class GameState:
     def reshuffle_fate_cards(self):
         self.current_fate_card_id = None
         self.fate_card_revealed = [False] * NUM_TOTAL_FATE_CARDS
+        self.left_fate_cards_remaining = NUM_LEFT_FATE_CARDS
+        self.center_fate_cards_remaining = NUM_CENTER_FATE_CARDS
+        self.right_fate_cards_remaining = NUM_RIGHT_FATE_CARDS
         self.fate_card_pile = self.all_fate_cards.copy()
         random.shuffle(self.fate_card_pile)
 
@@ -509,24 +527,24 @@ class GameState:
             return None
         return self.get_current_prospect_card()["scout_pattern_id"]
 
-    # Left board
+    # Left sheet
     def get_final_disdain(self):
-        return self.num_disdain - self.num_favours_used - self.baths_slots
+        return self.num_disdain - self.baths_boxes
 
     def get_num_cohorts_completed(self):
         return sum([
-            self.left_cohort_slots >= NUM_COHORTS_SLOTS,
-            self.center_cohort_slots >= NUM_COHORTS_SLOTS,
-            self.right_cohort_slots >= NUM_COHORTS_SLOTS,
+            self.left_cohort_boxes >= NUM_COHORTS_BOXES,
+            self.center_cohort_boxes >= NUM_COHORTS_BOXES,
+            self.right_cohort_boxes >= NUM_COHORTS_BOXES,
         ])
 
     def get_num_completed_citizen_tracks(self):
         return sum([
-            self.traders_track_slots >= NUM_CITIZEN_TRACK_SLOTS,
-            self.performers_track_slots >= NUM_CITIZEN_TRACK_SLOTS,
-            self.priests_track_slots >= NUM_CITIZEN_TRACK_SLOTS,
-            self.apparitores_track_slots >= NUM_CITIZEN_TRACK_SLOTS,
-            self.patricians_track_slots >= NUM_CITIZEN_TRACK_SLOTS,
+            self.traders_track_boxes >= NUM_CITIZEN_TRACK_BOXES,
+            self.performers_track_boxes >= NUM_CITIZEN_TRACK_BOXES,
+            self.priests_track_boxes >= NUM_CITIZEN_TRACK_BOXES,
+            self.apparitores_track_boxes >= NUM_CITIZEN_TRACK_BOXES,
+            self.patricians_track_boxes >= NUM_CITIZEN_TRACK_BOXES,
         ])
 
     def get_num_distinct_goods(self):
@@ -534,9 +552,9 @@ class GameState:
 
     def get_num_filled_temples(self):
         return sum([
-            self.small_temple_slots >= NUM_SMALL_TEMPLE_SLOTS,
-            self.medium_temple_slots >= NUM_MEDIUM_TEMPLE_SLOTS,
-            self.large_temple_slots >= NUM_LARGE_TEMPLE_SLOTS,
+            self.small_temple_boxes >= NUM_SMALL_TEMPLE_BOXES,
+            self.medium_temple_boxes >= NUM_MEDIUM_TEMPLE_BOXES,
+            self.large_temple_boxes >= NUM_LARGE_TEMPLE_BOXES,
         ])
 
     def get_num_landmarks_built(self):
@@ -568,16 +586,16 @@ class GameState:
             return None
         return self.all_player_cards[self.neighbor_prospect_card_2_id]["goods_id"]
 
-    # Right board
+    # Right sheet
     # Traders
-    def get_next_free_market_slot(self):
-        for i in range(self.market_slots_unlocked):
-            if not self.market_slots[i]:
+    def get_next_free_market_box(self):
+        for i in range(self.market_boxes_unlocked):
+            if not self.market_boxes[i]:
                 return i
         return None
 
-    def has_free_market_slot(self):
-        return self.get_next_free_market_slot() is not None
+    def has_free_market_box(self):
+        return self.get_next_free_market_box() is not None
 
     # Performers
     def get_current_fate_card_gladiator_damage(self):
@@ -596,20 +614,22 @@ class GameState:
 
     # Priests
     def is_small_temple_filled(self):
-        return self.small_temple_slots >= NUM_SMALL_TEMPLE_SLOTS
+        return self.small_temple_boxes >= NUM_SMALL_TEMPLE_BOXES
 
     def is_medium_temple_filled(self):
-        return self.medium_temple_slots >= NUM_MEDIUM_TEMPLE_SLOTS
+        return self.medium_temple_boxes >= NUM_MEDIUM_TEMPLE_BOXES
 
     def is_large_temple_filled(self):
-        return self.large_temple_slots >= NUM_LARGE_TEMPLE_SLOTS
+        return self.large_temple_boxes >= NUM_LARGE_TEMPLE_BOXES
 
     # Patricians
-    def has_diplomat_slot_available(self):
-        return self.get_num_diplomat_slots_used() < self.diplomat_slots_unlocked
+    def has_diplomat_box_available(self):
+        return self.get_num_diplomat_boxes_used() < self.diplomat_boxes_unlocked
 
-    def get_num_diplomat_slots_used(self):
-        return sum([self.diplomat_left_used, self.diplomat_center_used, self.diplomat_right_used])
+    def get_num_diplomat_boxes_used(self):
+        return (0 if self.diplomat_left_available else 1) + \
+            (0 if self.diplomat_center_available else 1) + \
+            (0 if self.diplomat_right_available else 1)
 
     def get_neighbor_prospect_card_1_scout_pattern_id(self):
         if self.neighbor_prospect_card_1_id is None:
@@ -621,10 +641,10 @@ class GameState:
             return None
         return self.get_neighbor_prospect_card_2()["scout_pattern_id"]
 
-    def is_scout_grid_slot_available(self, row, col):
+    def is_scout_grid_box_available(self, row, col):
         index = row * NUM_SCOUTS_GRID_COLS + col
         return not self.scouts_grid[index]
 
-    def fill_scout_grid_slot(self, row, col):
+    def fill_scout_grid_box(self, row, col):
         index = row * NUM_SCOUTS_GRID_COLS + col
         self.scouts_grid[index] = True
