@@ -527,6 +527,13 @@ class GameState:
             return None
         return self.get_current_prospect_card()["scout_pattern_id"]
 
+    # Pict attacks
+    def get_sum_incoming_disdain(self):
+        return self.left_cohort_incoming_disdain + \
+            self.center_cohort_incoming_disdain + \
+            self.right_cohort_incoming_disdain
+
+
     # Left sheet
     def get_final_disdain(self):
         return self.num_disdain - self.baths_boxes

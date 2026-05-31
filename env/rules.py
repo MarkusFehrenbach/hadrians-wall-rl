@@ -303,9 +303,9 @@ def _start_pict_attack(state: GameState):
             num_pict_attacks_right += 1
         else:
             assert(False, f"Unknown pict attack direction {pict_attack_direction}")
-    state.left_cohort_incoming_disdain = max(0, state.left_cohort_boxes - num_pict_attacks_left)
-    state.center_cohort_incoming_disdain = max(0, state.center_cohort_boxes - num_pict_attacks_center)
-    state.right_cohort_incoming_disdain = max(0, state.right_cohort_boxes - num_pict_attacks_left)
+    state.left_cohort_incoming_disdain = max(0, num_pict_attacks_left - state.left_cohort_boxes)
+    state.center_cohort_incoming_disdain = max(0, num_pict_attacks_center - state.center_cohort_boxes)
+    state.right_cohort_incoming_disdain = max(0, num_pict_attacks_right - state.right_cohort_boxes)
     if (state.left_cohort_incoming_disdain > 0 and (state.num_left_cohort_favours > 0 or state.num_general_favours > 0)) or \
             (state.center_cohort_incoming_disdain > 0 and (state.num_center_cohort_favours > 0 or state.num_general_favours > 0)) or \
             (state.right_cohort_incoming_disdain > 0 and (state.num_right_cohort_favours > 0 or state.num_general_favours > 0)):
@@ -314,11 +314,8 @@ def _start_pict_attack(state: GameState):
         _end_round(state)  
 
 def _end_round(state: GameState):
-    state.num_disdain += state.left_cohort_incoming_disdain
-    state.num_disdain += state.center_cohort_incoming_disdain
-    state.num_disdain += state.right_cohort_incoming_disdain
+    state.num_disdain = min(state.num_disdain + state.get_sum_incoming_disdain(), NUM_DISDAIN_BOXES)
     start_new_round(state)
-    
 
 # --- Game rules apply action functions --- #
 def apply_action(state: GameState, action):
@@ -1186,6 +1183,30 @@ def _validate_follow_up_action(state: GameState, action):
                     GameStatus.STATUS_CHOOSE_TWO_ATTRIBUTES, \
                     GameStatus.STATUS_CHOOSE_ATTRIBUTE]) and \
                 state.dicipline_attribute_boxes < ATTRIBUTE_POINTS_PER_TRACK
+        case actions.ACTION_USE_LEFT_FAVOUR:
+            return state.status == GameStatus.STATUS_USE_FAVOURS and \
+                state.num_left_cohort_favours > 0 and \
+                state.left_cohort_incoming_disdain >= 1
+        case actions.ACTION_USE_CENTER_FAVOUR:
+            return state.status == GameStatus.STATUS_USE_FAVOURS and \
+                state.num_center_cohort_favours > 0 and \
+                state.center_cohort_incoming_disdain >= 1
+        case actions.ACTION_USE_RIGHT_FAVOUR:
+            return state.status == GameStatus.STATUS_USE_FAVOURS and \
+                state.num_right_cohort_favours > 0 and \
+                state.right_cohort_incoming_disdain >= 1
+        case actions.ACTION_USE_GENERAL_FAVOUR_LEFT:
+            return state.status == GameStatus.STATUS_USE_FAVOURS and \
+                state.num_general_favours > 0 and \
+                state.left_cohort_incoming_disdain >= 1
+        case actions.ACTION_USE_GENERAL_FAVOUR_CENTER:
+            return state.status == GameStatus.STATUS_USE_FAVOURS and \
+                state.num_general_favours > 0 and \
+                state.center_cohort_incoming_disdain >= 1
+        case actions.ACTION_USE_GENERAL_FAVOUR_RIGHT:
+            return state.status == GameStatus.STATUS_USE_FAVOURS and \
+                state.num_general_favours > 0 and \
+                state.right_cohort_incoming_disdain >= 1
         case _:
             raise ValueError(f"Unknown action: {action}")
     return False
@@ -2954,6 +2975,8 @@ def _use_left_favour(state: GameState):
     state.num_left_cohort_favours -= 1
     state.num_favours_used += 1
     state.left_cohort_incoming_disdain -= 1
+    if state.get_sum_incoming_disdain() <= 0:
+        _end_round(state)
 
 def _use_center_favour(state: GameState):
     assert(state.status == GameStatus.STATUS_USE_FAVOURS, "Game does not have the correct status to perform this action")
@@ -2962,6 +2985,8 @@ def _use_center_favour(state: GameState):
     state.num_center_cohort_favours -= 1
     state.num_favours_used += 1
     state.center_cohort_incoming_disdain -= 1
+    if state.get_sum_incoming_disdain() <= 0:
+        _end_round(state)
 
 def _use_right_favour(state: GameState):
     assert(state.status == GameStatus.STATUS_USE_FAVOURS, "Game does not have the correct status to perform this action")
@@ -2970,6 +2995,8 @@ def _use_right_favour(state: GameState):
     state.num_right_cohort_favours -= 1
     state.num_favours_used += 1
     state.right_cohort_incoming_disdain -= 1
+    if state.get_sum_incoming_disdain() <= 0:
+        _end_round(state)
 
 def _use_general_favour_left(state: GameState):
     assert(state.status == GameStatus.STATUS_USE_FAVOURS, "Game does not have the correct status to perform this action")
@@ -2978,6 +3005,8 @@ def _use_general_favour_left(state: GameState):
     state.num_general_favours -= 1
     state.num_favours_used += 1
     state.left_cohort_incoming_disdain -= 1
+    if state.get_sum_incoming_disdain() <= 0:
+        _end_round(state)
 
 def _use_general_favour_center(state: GameState):
     assert(state.status == GameStatus.STATUS_USE_FAVOURS, "Game does not have the correct status to perform this action")
@@ -2986,6 +3015,8 @@ def _use_general_favour_center(state: GameState):
     state.num_general_favours -= 1
     state.num_favours_used += 1
     state.center_cohort_incoming_disdain -= 1
+    if state.get_sum_incoming_disdain() <= 0:
+        _end_round(state)
 
 def _use_general_favour_right(state: GameState):
     assert(state.status == GameStatus.STATUS_USE_FAVOURS, "Game does not have the correct status to perform this action")
@@ -2994,6 +3025,8 @@ def _use_general_favour_right(state: GameState):
     state.num_general_favours -= 1
     state.num_favours_used += 1
     state.right_cohort_incoming_disdain -= 1
+    if state.get_sum_incoming_disdain() <= 0:
+        _end_round(state)
 
 
 # Add scoring points
