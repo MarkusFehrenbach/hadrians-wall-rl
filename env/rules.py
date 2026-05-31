@@ -3179,4 +3179,4 @@ def get_final_score(state) -> int:
         + state.valour_attribute_boxes \
         + state.dicipline_attribute_boxes \
         + state.path_card_points \
-        - state.num_disdain_points
+        + state.num_disdain_points
