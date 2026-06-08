@@ -524,27 +524,27 @@ def _apply_trader_action(state: GameState, action):
             goods_id = state.get_neighbor_prospect_card_2_goods_id()
             assert goods_id is not None, "Neighbor does not have a prospect card 2 to buy goods from"
             _buy_goods(state, goods_id)
-        case action.ACTION_BUY_GOODS_7_FATE_CARD:
+        case actions.ACTION_BUY_GOODS_7_FATE_CARD:
             state.draw_fate_card()
             goods_id = state.get_current_fate_card_goods_id()
             _buy_goods(state, goods_id, index=TRADERS_MARKET_SERVANT_BOX - 1)
-        case action.ACTION_BUY_GOODS_7_NEIGHBOR_CARD_1:
+        case actions.ACTION_BUY_GOODS_7_NEIGHBOR_CARD_1:
             goods_id = state.get_neighbor_prospect_card_1_goods_id()
             assert goods_id is not None, "Neighbor does not have a prospect card 1 to buy goods from"
             _buy_goods(state, goods_id, index=TRADERS_MARKET_SERVANT_BOX - 1)
-        case action.ACTION_BUY_GOODS_7_NEIGHBOR_CARD_2:
+        case actions.ACTION_BUY_GOODS_7_NEIGHBOR_CARD_2:
             goods_id = state.get_neighbor_prospect_card_2_goods_id()
             assert goods_id is not None, "Neighbor does not have a prospect card 2 to buy goods from"
             _buy_goods(state, goods_id, index=TRADERS_MARKET_SERVANT_BOX - 1)
-        case action.ACTION_BUY_GOODS_8_FATE_CARD:
+        case actions.ACTION_BUY_GOODS_8_FATE_CARD:
             state.draw_fate_card()
             goods_id = state.get_current_fate_card_goods_id()
             _buy_goods(state, goods_id, index=TRADERS_MARKET_BUILDER_BOX - 1)
-        case action.ACTION_BUY_GOODS_8_NEIGHBOR_CARD_1:
+        case actions.ACTION_BUY_GOODS_8_NEIGHBOR_CARD_1:
             goods_id = state.get_neighbor_prospect_card_1_goods_id()
             assert goods_id is not None, "Neighbor does not have a prospect card 1 to buy goods from"
             _buy_goods(state, goods_id, index=TRADERS_MARKET_BUILDER_BOX - 1)
-        case action.ACTION_BUY_GOODS_8_NEIGHBOR_CARD_2:
+        case actions.ACTION_BUY_GOODS_8_NEIGHBOR_CARD_2:
             goods_id = state.get_neighbor_prospect_card_2_goods_id()
             assert goods_id is not None, "Neighbor does not have a prospect card 2 to buy goods from"
             _buy_goods(state, goods_id, index=TRADERS_MARKET_BUILDER_BOX - 1)
@@ -1066,11 +1066,11 @@ def _validate_left_sheet_action(state: GameState, action) -> bool:
         case actions.ACTION_ADVANCE_MINING_AND_FORESTING:
             return (state.mining_and_foresting_boxes < NUM_MINING_AND_FORESTING_BOXES)
         case actions.ACTION_ADVANCE_WALL_GUARD:
-            return (state.wall_guard_boxes < NUM_WALL_AND_FORT_BOXES)
+            return (state.wall_guard_boxes < NUM_WALL_GUARD_BOXES)
         case actions.ACTION_ADVANCE_CIPPI:
             return (state.cippi_boxes < state.cippi_boxes_unlocked)
         case actions.ACTION_ADVANCE_WALL:
-            return (state.wall_guard_boxes < state.wall_and_fort_boxes_unlocked)
+            return (state.wall_boxes < state.wall_and_fort_boxes_unlocked)
         case actions.ACTION_ADVANCE_FORT_PAY_SOLDIER | actions.ACTION_ADVANCE_FORT_PAY_BUILDER:
             return (state.fort_boxes < state.wall_and_fort_boxes_unlocked)
         case actions.ACTION_BUILD_SMALL_GRANARY:
@@ -1080,7 +1080,7 @@ def _validate_left_sheet_action(state: GameState, action) -> bool:
         case actions.ACTION_USE_TRAINING_GROUNDS:
             return state.training_grounds_available and \
                 (state.training_grounds_boxes_available > 0) and \
-                (state.wall_guard_boxes < NUM_WALL_AND_FORT_BOXES)
+                (state.wall_guard_boxes < NUM_WALL_GUARD_BOXES)
         case actions.ACTION_BUILD_SMALL_HOTEL:
             return state.small_hotel_unlocked and not state.small_hotel_built
         case actions.ACTION_BUILD_LARGE_HOTEL:
@@ -1322,7 +1322,8 @@ def _validate_apparitore_action(state: GameState, action) -> bool:
         case actions.ACTION_PAY_BRIBE:
             return state.baths_built and \
                 (state.baths_boxes_available > 0) and \
-                (state.baths_boxes < state.baths_boxes_unlocked)
+                (state.baths_boxes < state.baths_boxes_unlocked) and \
+                (state.get_final_disdain() > 0)
         case actions.ACTION_BUILD_COURTHOUSE:
             return state.courthouse_unlocked and not state.courthouse_built
         case actions.ACTION_COURTHOUSE_GET_SERVANT:
@@ -1332,11 +1333,13 @@ def _validate_apparitore_action(state: GameState, action) -> bool:
         case actions.ACTION_COURTHOUSE_BUILDER_TO_TWO_SERVANTS:
             return state.courthouse_built and \
                 state.courthouse_builder_to_two_servants_available and \
-                (state.courthouse_builder_to_two_servants_boxes < state.courthouse_builder_to_two_servants_unlocked)
+                (state.courthouse_builder_to_two_servants_boxes < state.courthouse_builder_to_two_servants_unlocked) and \
+                (state.num_builders >= 1)
         case actions.ACTION_COURTHOUSE_SERVANT_TO_BUILDER:
             return state.courthouse_built and \
                 state.courthouse_servant_to_builder_available and \
-                (state.courthouse_servant_to_builder_boxes < state.courthouse_servant_to_builder_unlocked)
+                (state.courthouse_servant_to_builder_boxes < state.courthouse_servant_to_builder_unlocked) and \
+                (state.num_servants >= 1)
         case _:
             raise ValueError(f"Unknown action: {action}")
     return False
@@ -1980,7 +1983,7 @@ def _build_small_granary(state: GameState):
     assert state.infrastructure_level >= SMALL_GRANARY_INFRASTRUCTURE_THRESHOLD, "Infrastructure level is not high enough to build the small granary"
     assert state.small_granary_built == False, "Small granary is already built"
     state.small_granary_built = True
-    state.fort_and_wall_boxes_unlocked = max(state.fort_and_wall_boxes_unlocked, SMALL_GRANARY_FORT_AND_WALL_UNLOCK)
+    state.wall_and_fort_boxes_unlocked = max(state.wall_and_fort_boxes_unlocked, SMALL_GRANARY_FORT_AND_WALL_UNLOCK)
 
 def _build_large_granary(state: GameState):
     assert state.large_granary_unlocked, "Large granary action is not unlocked yet"
@@ -1988,7 +1991,7 @@ def _build_large_granary(state: GameState):
     assert state.small_granary_built == True, "Small granary must be built before building the large granary"
     assert state.large_granary_built == False, "Large granary is already built"
     state.large_granary_built = True
-    state.fort_and_wall_boxes_unlocked = max(state.fort_and_wall_boxes_unlocked, LARGE_GRANARY_FORT_AND_WALL_UNLOCK)
+    state.wall_and_fort_boxes_unlocked = max(state.wall_and_fort_boxes_unlocked, LARGE_GRANARY_FORT_AND_WALL_UNLOCK)
     _add_renown_attribute_point(state)
 
 def _use_training_grounds(state: GameState):
@@ -2059,28 +2062,28 @@ def _use_forum(state: GameState):
 
 def _build_landmark_1(state: GameState):
     assert state.landmark_1_unlocked, "Landmark 1 action is not unlocked yet"
-    assert state.num_renown_attribute_boxes >= LANDMARK_ATTRIBUTE_POINTS_THRESHOLD, "Not enough renown attribute points to build landmark 1"
+    assert state.renown_attribute_boxes >= LANDMARK_ATTRIBUTE_POINTS_THRESHOLD, "Not enough renown attribute points to build landmark 1"
     assert state.landmark_1_built == False, "Landmark 1 is already built"
     state.landmark_1_built = True
     _add_valour_attribute_point(state, num_points=2)
 
 def _build_landmark_2(state: GameState):
     assert state.landmark_2_unlocked, "Landmark 2 action is not unlocked yet"
-    assert state.num_piety_attribute_boxes >= LANDMARK_ATTRIBUTE_POINTS_THRESHOLD, "Not enough piety attribute points to build landmark 2"
+    assert state.piety_attribute_boxes >= LANDMARK_ATTRIBUTE_POINTS_THRESHOLD, "Not enough piety attribute points to build landmark 2"
     assert state.landmark_2_built == False, "Landmark 2 is already built"
     state.landmark_2_built = True
     _add_dicipline_attribute_point(state, num_points=2)
 
 def _build_landmark_3(state: GameState):
     assert state.landmark_3_unlocked, "Landmark 3 action is not unlocked yet"
-    assert state.num_valour_attribute_boxes >= LANDMARK_ATTRIBUTE_POINTS_THRESHOLD, "Not enough valour attribute points to build landmark 3"
+    assert state.valour_attribute_boxes >= LANDMARK_ATTRIBUTE_POINTS_THRESHOLD, "Not enough valour attribute points to build landmark 3"
     assert state.landmark_3_built == False, "Landmark 3 is already built"
     state.landmark_3_built = True
     _add_piety_attribute_point(state, num_points=2)
 
 def _build_landmark_4(state: GameState):
     assert state.landmark_4_unlocked, "Landmark 4 action is not unlocked yet"
-    assert state.num_dicipline_attribute_boxes >= LANDMARK_ATTRIBUTE_POINTS_THRESHOLD, "Not enough dicipline attribute points to build landmark 4"
+    assert state.dicipline_attribute_boxes >= LANDMARK_ATTRIBUTE_POINTS_THRESHOLD, "Not enough dicipline attribute points to build landmark 4"
     assert state.landmark_4_built == False, "Landmark 4 is already built"
     state.landmark_4_built = True
     _add_renown_attribute_point(state, num_points=2)
@@ -2203,7 +2206,8 @@ def _arrange_performance_1(state: GameState):
     state.theater_boxes[0] = True
     state.theater_available = False
     state.theater_boxes_rounds[0] = state.current_round
-    _advance_traders_track(state)
+    if state.traders_track_boxes < NUM_CITIZEN_TRACK_BOXES:
+        _advance_traders_track(state)
 
 def _arrange_performance_2(state: GameState):
     assert state.theater_boxes_unlocked >= 2, "Theater box has not been unlocked yet"
@@ -2242,7 +2246,8 @@ def _arrange_performance_4(state: GameState):
     state.theater_available = False
     state.theater_boxes_rounds[3] = state.current_round
     _add_dicipline_attribute_point(state)
-    _advance_apparitores_track(state)
+    if state.apparitores_track_boxes < NUM_CITIZEN_TRACK_BOXES:
+        _advance_apparitores_track(state)
 
 def _arrange_performance_5(state: GameState):
     assert state.theater_boxes_unlocked >= 5, "Theater box has not been unlocked yet"
@@ -2255,7 +2260,8 @@ def _arrange_performance_5(state: GameState):
     state.theater_available = False
     state.theater_boxes_rounds[4] = state.current_round
     _add_piety_attribute_point(state)
-    _advance_priests_track(state)
+    if state.priests_track_boxes < NUM_CITIZEN_TRACK_BOXES:
+        _advance_priests_track(state)
 
 def _arrange_performance_6(state: GameState):
     assert state.theater_boxes_unlocked >= 6, "Theater box has not been unlocked yet"
@@ -2268,7 +2274,8 @@ def _arrange_performance_6(state: GameState):
     state.theater_available = False
     state.theater_boxes_rounds[5] = state.current_round
     _add_renown_attribute_point(state)
-    _advance_patricians_track(state)
+    if state.patricians_track_boxes < NUM_CITIZEN_TRACK_BOXES:
+        _advance_patricians_track(state)
 
 def _build_colosseum(state: GameState):
     assert state.colosseum_unlocked, "Colosseum action is not unlocked yet"
@@ -2374,9 +2381,12 @@ def _build_small_garden(state: GameState):
     assert state.small_garden_built == False, "Small garden is already built"
     state.small_garden_built = True
     _add_piety_attribute_point(state)
-    _advance_traders_track(state)
-    _advance_performers_track(state)
-    _advance_priests_track(state)
+    if state.traders_track_boxes < NUM_CITIZEN_TRACK_BOXES:
+        _advance_traders_track(state)
+    if state.performers_track_boxes < NUM_CITIZEN_TRACK_BOXES:
+        _advance_performers_track(state)
+    if state.priests_track_boxes < NUM_CITIZEN_TRACK_BOXES:
+        _advance_priests_track(state)
 
 def _build_large_garden(state: GameState):
     assert state.large_garden_unlocked, "Large garden action is not unlocked yet"
@@ -2385,11 +2395,16 @@ def _build_large_garden(state: GameState):
     assert state.large_garden_built == False, "Large garden is already built"
     state.large_garden_built = True
     _add_piety_attribute_point(state)
-    _advance_traders_track(state)
-    _advance_performers_track(state)
-    _advance_priests_track(state)
-    _advance_apparitores_track(state)
-    _advance_patricians_track(state)
+    if state.traders_track_boxes < NUM_CITIZEN_TRACK_BOXES:
+        _advance_traders_track(state)
+    if state.performers_track_boxes < NUM_CITIZEN_TRACK_BOXES:
+        _advance_performers_track(state)
+    if state.priests_track_boxes < NUM_CITIZEN_TRACK_BOXES:
+        _advance_priests_track(state)
+    if state.apparitores_track_boxes < NUM_CITIZEN_TRACK_BOXES:
+        _advance_apparitores_track(state)
+    if state.patricians_track_boxes < NUM_CITIZEN_TRACK_BOXES:
+        _advance_patricians_track(state)
 
 def _build_small_temple(state: GameState):
     assert state.small_temple_unlocked, "Small temple action is not unlocked yet"
@@ -2480,7 +2495,8 @@ def _pay_bribe(state: GameState):
     assert state.get_final_disdain() > 0, "Not enough disdain to pay a bribe in the baths"
     state.baths_boxes += 1
     state.baths_rounds.append(state.current_round)
-    COSTS[actions.ACTION_PAY_BRIBE] = {"resources": APPARITORES_BATHS_BRIBE_COSTS[state.baths_boxes]}
+    if state.baths_boxes < NUM_BATHS_BOXES:
+        COSTS[actions.ACTION_PAY_BRIBE] = {"resources": APPARITORES_BATHS_BRIBE_COSTS[state.baths_boxes]}
 
 def _build_courthouse(state: GameState):
     assert state.courthouse_unlocked, "Courthouse action is not unlocked yet"
@@ -2491,7 +2507,7 @@ def _build_courthouse(state: GameState):
 
 def _courthouse_get_servant(state: GameState):
     assert state.courthouse_built, "Courthouse must be built before getting a servant from it"
-    assert not state.courthouse_get_servant_available, "Courthouse get servant action is not available"
+    assert state.courthouse_get_servant_available, "Courthouse get servant action is not available"
     assert state.courthouse_get_servant_boxes < MAX_NUM_COURTHOUSE_ACTIONS, "All courthouse get servant boxes are already used"
     assert state.courthouse_get_servant_boxes < state.courthouse_get_servant_unlocked, "Not enough courthouse get servant boxes are unlocked yet"
     assert state.apparitores_track_boxes >= APPARITORES_COURTHOUSE_GET_SERVANT_THRESHOLDS[state.courthouse_get_servant_boxes], \
@@ -2503,7 +2519,7 @@ def _courthouse_get_servant(state: GameState):
 
 def _courthouse_builder_to_two_servants(state: GameState):
     assert state.courthouse_built, "Courthouse must be built before converting a builder to two servants"
-    assert not state.courthouse_builder_to_two_servants_available, "Courthouse builder to two servants action is not available"
+    assert state.courthouse_builder_to_two_servants_available, "Courthouse builder to two servants action is not available"
     assert state.courthouse_builder_to_two_servants_boxes < MAX_NUM_COURTHOUSE_ACTIONS, "All courthouse builder to two servants boxes are already used"
     assert state.courthouse_builder_to_two_servants_boxes < state.courthouse_builder_to_two_servants_unlocked, \
 		"Not enough courthouse builder to two servants boxes are unlocked yet"
@@ -2516,13 +2532,12 @@ def _courthouse_builder_to_two_servants(state: GameState):
 
 def _courthouse_servant_to_builder(state: GameState):
     assert state.courthouse_built, "Courthouse must be built before converting a servant to a builder"
-    assert not state.courthouse_servant_to_builder_available, "Courthouse servant to builder action is not available"
+    assert state.courthouse_servant_to_builder_available, "Courthouse servant to builder action is not available"
     assert state.courthouse_servant_to_builder_boxes < MAX_NUM_COURTHOUSE_ACTIONS, "All courthouse servant to builder boxes are already used"
     assert state.courthouse_servant_to_builder_boxes < state.courthouse_servant_to_builder_unlocked, \
 		"Not enough courthouse servant to builder boxes are unlocked yet"
     assert state.apparitores_track_boxes >= APPARITORES_COURTHOUSE_SERVANT_TO_BUILDER_THRESHOLDS[state.courthouse_servant_to_builder_boxes], \
 		"Apparitores track is not high enough to convert a servant to a builder in the courthouse"
-    assert state.num_servants >= 1, "Not enough servants to convert to a builder in the courthouse"
     state.courthouse_servant_to_builder_available = False
     state.num_builders += 1
     state.courthouse_servant_to_builder_boxes += 1

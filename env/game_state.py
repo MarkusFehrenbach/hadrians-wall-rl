@@ -77,7 +77,7 @@ class GameState:
         self.cippi_boxes_unlocked = 0
         self.wall_boxes = 0
         self.fort_boxes = 0
-        self.wall_and_fort_boxes_unlocked = 0
+        self.wall_and_fort_boxes_unlocked = WALL_AND_FORT_SECTION_THRESHOLDS[0]
         self.small_granary_unlocked = False
         self.small_granary_built = False
         self.large_granary_unlocked = False
